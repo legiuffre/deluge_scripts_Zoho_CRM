@@ -1,0 +1,82 @@
+void autoRunTruckStatusCounterProduction()
+{
+loop = {1,2,3,4,5,6};
+// loop = {1};
+flag_error = 0;
+pm_map_error = Map();
+count = 0;
+for each  ele in loop
+{
+	query_map = Map();
+	query_map.put("sort_order","asc");
+	query_map.put("sort_by","Name");
+	config = Map();
+	config.put("responseFormat","json");
+	paramsMap = Map();
+	paramsMap.put("CONFIG",config.toString());
+	// 	info response;
+	response = zoho.crm.getRecords("Trucks",ele,200,query_map);
+	if(response.size() == 0)
+	{
+		//Break if no records are returned
+		break;
+	}
+	// 	data = response;
+	for each  Rec in response
+	{
+		if(!Rec.get("Trouble_Truck_Status").isNull())
+		{
+			info Rec;
+			recId = Rec.get("id");
+			// 						// 		info recId;
+			newmap = Map();
+			truckStatusDate = Rec.get("Truck_Status_Date");
+			truckStatusCounter = Rec.get("Truck_Status_Counter");
+			info truckStatusDate;
+			if(!truckStatusDate.isNull())
+			{
+				if(daysBetween(truckStatusDate.toDate(),today) > 0)
+				{
+					info truckStatusDate;
+					count = truckStatusCounter.toNumber() + 1;
+					// 				info count;
+					newmap.put("Truck_Status_Counter",count.toString());
+				}
+			}
+			else
+			{
+				newmap.put("Truck_Status_Date",null);
+			}
+			postResponse = zoho.crm.updateRecord("Trucks",recId,newmap);
+			if(postResponse.containKey("Modified_Time") == false)
+			{
+				pm_map_error.put("Truck_VIN",recId);
+				pm_map_error.put("Error_Message",postResponse);
+				flag_error = 1;
+				// 				info pm_map_error;
+			}
+			info postResponse;
+		}
+	}
+}
+if(flag_error == 1)
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Truck Status Counter Update Failed"
+		message :pm_map_error + "<br><br>"
+	]
+}
+else
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Truck Status Counter Completed"
+		message :"Truck Status Counter Completed<br><br>"
+	]
+}
+}
