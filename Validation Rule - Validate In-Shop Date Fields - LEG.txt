@@ -1,0 +1,21 @@
+entityMap = crmAPIRequest.toMap().get("record");
+response = Map();
+if(entityMap.get("In_Shop_Date_Time").length() == 0 || entityMap.get("Out_Shop_Date_Time").length() == 0)
+{
+	response.put('status','success');
+}
+else
+{
+	inShopDate = entityMap.get("In_Shop_Date_Time").replaceAll("T"," ").toDateTime();
+	outShopDate = entityMap.get("Out_Shop_Date_Time").replaceAll("T"," ").toDateTime();
+	if(inShopDate > outShopDate)
+	{
+		response.put('status','Failed');
+		response.put('message','In Shop Date/Time cannot be after Out Shop Date/Time');
+	}
+	else
+	{
+		response.put('status','success');
+	}
+}
+return response;

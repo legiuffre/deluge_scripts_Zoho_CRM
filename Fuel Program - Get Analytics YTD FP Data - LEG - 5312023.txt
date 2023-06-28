@@ -1,0 +1,73 @@
+orgId = "769480731";
+workspaceId = "2511359000001709018";
+viewId = "2511359000006251472";
+headersMap = Map();
+headersMap.put("ZANALYTICS-ORGID",orgId);
+config = Map();
+config.put("responseFormat","json");
+paramsMap = Map();
+paramsMap.put("CONFIG",config.toString());
+response = invokeurl
+[
+	url :"https://analyticsapi.zoho.com/restapi/v2/workspaces/" + workspaceId + "/views/" + viewId + "/data"
+	type :GET
+	parameters:paramsMap
+	headers:headersMap
+	connection:"zoho_analytics"
+];
+//info left(response,5000);
+dataget = response.get("data");
+//info "DataGet = " + dataget;
+//info "Data Get Size = " + dataget.size();
+count = 0;
+for each  rec in dataget
+{
+	if(count < 2)
+	{
+		//count = count + 1;
+		//info "Rec = " + rec;
+		totalSpendYTD = rec.get("Total Amount (YTD)").toString().remove(",");
+		totalGallonsYTD = rec.get("Total Gallons (YTD)").toString().remove(",");
+		totalSavingsYTD = rec.get("Total Savings (YTD)").toString().remove(",");
+		totalSpendMTD = rec.get("Total Amount (MTD)").toString().remove(",");
+		totalGallonsMTD = rec.get("Total Gallons (MTD)").toString().remove(",");
+		totalSavingsMTD = rec.get("Total Savings (MTD)").toString().remove(",");
+		//fedex
+		totalFXRSGallonsMTD = rec.get("FedEx Gallons (MTD)").toString().remove(",");
+		totalFXRSSavingsMTD = rec.get("FedEx Savings (MTD)").toString().remove(",");
+		//ta petro
+		totalTAPETROGallonsMTD = rec.get("TA/Petro Gallons (MTD)").toString().remove(",");
+		totalTAPETROSavingsMTD = rec.get("TA/Petro Savings (MTD)").toString().remove(",");
+		//pilot fj
+		totalPilotGallonsMTD = rec.get("Pilot/FJ Gallons (MTD)").toString().remove(",");
+		totalPilotSavingsMTD = rec.get("Pilot/FJ Savings (MTD)").toString().remove(",");
+		//other
+		totalOTHERGallonsMTD = ifnull(rec.get("Other Gallons (MTD)").toString().remove(","),0);
+		totalOTHERSavingsMTD = ifnull(rec.get("Other Savings (MTD)").toString().remove(","),0);
+		parentID = rec.get("Record ID");
+		info "parentID: " + parentID;
+		final = Map();
+		final.put("Total_Spend_YTD",if(totalSpendYTD.isNull(),0,totalSpendYTD));
+		final.put("Number_Gallons_YTD",if(totalGallonsYTD.isNull(),0,totalGallonsYTD.toNumber()));
+		final.put("Savings_YTD",if(totalSavingsYTD.isNull(),0,totalSavingsYTD));
+		final.put("Total_Spend_MTD",if(totalSpendMTD.isNull(),0,totalSpendMTD));
+		final.put("Number_Gallons_MTD",if(totalGallonsMTD.isNull(),0,totalGallonsMTD.toNumber()));
+		final.put("Savings_MTD",if(totalSavingsMTD.isNull(),0,totalSavingsMTD));
+		//fedex
+		final.put("FEDEXGR_Gallons_MTD",if(totalFXRSGallonsMTD.isNull(),0,totalFXRSGallonsMTD.toNumber()));
+		final.put("FEDEXGR_Savings",if(totalFXRSSavingsMTD.isNull(),0,totalFXRSSavingsMTD));
+		//ta petro
+		final.put("TA_Petro_Gallons_MTD",if(totalTAPETROGallonsMTD.isNull(),0,totalTAPETROGallonsMTD.toNumber()));
+		final.put("TA_Petro_Savings",if(totalTAPETROSavingsMTD.isNull(),0,totalTAPETROSavingsMTD));
+		//pilot fj
+		final.put("Pilot_Flying_J_Gallons_MTD",if(totalPilotGallonsMTD.isNull(),0,totalPilotGallonsMTD.toNumber()));
+		final.put("Pilot_Flying_J_Savings",if(totalPilotSavingsMTD.isNull(),0,totalPilotSavingsMTD));
+		//other
+		final.put("OTHER_Gallons_MTD",if(totalOTHERGallonsMTD.isNull(),0,totalOTHERGallonsMTD.toNumber()));
+		final.put("OTHER_Savings",if(totalOTHERSavingsMTD.isNull(),0,totalOTHERSavingsMTD));
+		info "final: " + final;
+		updateFP = zoho.crm.updateRecord("Fuel_Program",parentID,final);
+		info updateFP;
+		//}
+	}
+}

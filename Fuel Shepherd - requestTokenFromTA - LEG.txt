@@ -1,0 +1,41 @@
+headersMap = Map();
+headersTemp = {"app_name":"test_token_auth","correlation_id":"1234"};
+headersMap.putAll(headersTemp);
+headersTemp.clear();
+paramsMap = Map();
+paramsTemp = {"client_id":zoho.crm.getOrgVariable("fsAPIClientID"),"client_secret":zoho.crm.getOrgVariable("fsAPIClientSecret"),"audience":"https://api.accessta.com","grant_type":"client_credentials"};
+paramsMap.putAll(paramsTemp);
+paramsTemp.clear();
+response = invokeurl
+[
+	url :"https://login.accessta.com/oauth/token"
+	type :POST
+	parameters:paramsMap.toString()
+	headers:headersMap
+	content-type:"application/json"
+];
+paramsMap.clear();
+headersMap.clear();
+data = Map();
+data.put("JSONString",response);
+//info left(response,response.length());
+if(data.length() > 0 && !response.toString().containKey("error"))
+{
+	for each  rec in data
+	{
+		info "token: " + rec.get("access_token");
+		info "expires_in: " + rec.get("expires_in");
+		token = rec.get("access_token");
+	}
+}
+else
+{
+	for each  rec in data
+	{
+		info rec.get("error") + ": " + rec.get("error_description");
+		token = "";
+	}
+}
+data.clear();
+response.clear();
+return token;

@@ -1,0 +1,90 @@
+loop = {1,2,3,4,5};
+intloop = {1,2,3,4,5,6,7};
+//loop = {1};
+counter = 0;
+count = 0;
+currentDate = now.toText();
+endtime = currentDate.unixEpoch().left(10);
+stime = currentDate.subDay(7).toText();
+starttime = stime.unixEpoch().left(10);
+for each  ele in loop
+{
+	//srcCrt_1 = "(Zonar_GPS_ID:equals:'')";
+	RecordsListBatch = zoho.crm.getRecords("Trucks",ele,200);
+	//info RecordsListBatch;
+	//info RecordsListBatch.size();
+	for each  rec in RecordsListBatch
+	{
+		distance = 0;
+		if(rec.get("Zonar_GPS_ID") != null && count < 5)
+		{
+			count = count + 1;
+			if(rec.get("Truck_Status") == "-Delivered" || rec.get("Truck_Status") == "REL Solution Only")
+			{
+				//info "Truck Status = " + rec.get("Truck_Status");
+				D2 = rec.get("Name");
+				//info D2;
+				TrkID = rec.get("id");
+				//info TrkID;
+				//*** Pull Odometer reading from Zonar and parse data ***
+				//D2 = "3AKJHHDR8KSKJ2986";
+				url3 = "https://omi.zonarsystems.net/interface.php?customer=REL9300&username=abreen&password=Welcome1&action=showposition&operation=assetactivity&format=xml&start=" + starttime + "&end=" + endtime + "&vers=2&reqtype=vin&target=" + D2;
+				xmlResponse3 = ifnull(getUrl(url3),"");
+				//info url3;
+				//info "xmlResponse3 = " + xmlResponse3;
+				errCheck = xmlResponse3.contains("error");
+				//info errCheck;
+				if(errCheck || xmlResponse3 == "")
+				{
+					sendmail
+					[
+						from :zoho.adminuserid
+						to :"it@teamrel.com"
+						subject :"Odometer Update Failed on " + D2
+						message :"Odometer Script Failed on " + D2 + " with the follow error" + xmlResponse3 + "<br><br>"
+					]
+					info "Found Error";
+					//send email command
+				}
+				else
+				{
+					assetCount = xmlResponse3.executexpath("/assetactivity/@count").getSuffix("<count><![CDATA[").getPrefix("]]></count>");
+					//info assetCount;
+					if(assetCount.toNumber() > 0)
+					{
+						xmlList = xmlResponse3.toXmlList();
+						//trims and parses the tags out of the XML response
+						for each  int in intloop
+						{
+							if(xmlList.size() != 0)
+							{
+								r2 = xmlList.getPrefix("fleet=");
+								r2null = isNull(r2);
+								if(r2null == false)
+								{
+									//parses the text until xmlList = newlist
+									newlist = xmlList.getSuffix("fleet=");
+									r3 = r2.getSuffix("distance=");
+									//info r3;
+									strLEN = r3.length() - 2;
+									r4 = r3.subString(1,strLEN);
+									xmlList = newlist;
+									trim = r4.remove(",").toDecimal();
+									distance = trim + distance;
+								}
+							}
+						}
+						//updates record with "Mileage_Driven"
+						final = Map();
+						final.put("Mileage_Driven",distance.toNumber());
+						final.put("MPG",distance.toNumber());
+						info final;
+						//update = zoho.crm.updateRecord("Trucks",trkID,final);
+					}
+					//info counter;
+				}
+			}
+		}
+	}
+}
+//info count;

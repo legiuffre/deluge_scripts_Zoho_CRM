@@ -1,0 +1,159 @@
+loop = {1,2,3,4,5,6};
+//loop = {1};
+pur_loop = {1,2,3,4,5,6};
+RecCnt = 0;
+flag_error = 0;
+pm_map_error = Map();
+count = 0;
+for each  ele in loop
+{
+	//*** Go get Account Records and sort by Account Name ***
+	query_map = Map();
+	query_map.put("sort_order","asc");
+	query_map.put("sort_by","Account_Name");
+	response = zoho.crm.getRecords("Accounts",ele,200,query_map);
+	if(response.size() == 0)
+	{
+		//Break if no records are returned
+		break;
+	}
+	//*** Break out each Account records and work with them individually ***
+	for each  Rec in response
+	{
+		// 		if(Rec.get("Account_Name") == "Way Routes Inc.")
+		if(Rec.get("Account_Type") == "REL Lease Customer" || Rec.get("Account_Type") == "REL Solutions Only" || Rec.get("Account_Type") == "REL Fuel Only")
+		{
+			//if(Rec.get("Account_Type") == "REL Fuel Only")
+			RecCnt = RecCnt + 1;
+			//*** Get Account Record ID ***
+			recId = Rec.get("id");
+			acctName = Rec.get("Account_Name");
+			info acctName;
+			//*** Get each account record's assocated Truck Records ***
+			truckList = zoho.crm.getRelatedRecords("Trucks","Accounts",recId,1,200);
+			//*** Get each Trucks Escrow and Remaining Balance and total each ***
+			totalEscrow = 0;
+			totalBal = 0;
+			for each  trkRec in truckList
+			{
+				if(trkRec.get("Financial_Status") == "Leased" || trkRec.get("Truck_Status") == "Virtual" || trkRec.get("Truck_Status") == "REL Solution Only")
+				{
+					truckEa = ifnull(trkRec.get("Escrow"),0);
+					totalEscrow = totalEscrow + truckEa;
+					truckBal = ifnull(trkRec.get("Cust_Balance"),0);
+					totalBal = totalBal + truckBal;
+				}
+			}
+			newmap = Map();
+			for each  item in pur_loop
+			{
+				//response2 = zoho.crm.getRecords("Fuel_Program");
+				//info recId;
+				purchaseList = zoho.crm.getRelatedRecords("Account_CRM1","Accounts",recId,item,200);
+				if(purchaseList.size() > 0)
+				{
+					//info purchaseList;
+					//*** Write the Total Escrow amount to the Account record ***
+					totalSpendYTD = 0;
+					totalGallonsYTD = 0;
+					totalSavingsYTD = 0;
+					totalSpendMTD = 0;
+					totalGallonsMTD = 0;
+					totalSavingsMTD = 0;
+					//FXRS
+					totalFXRSGallonsMTD = 0;
+					totalFXRSSavingsMTD = 0;
+					//petro
+					totalPetroGallonsMTD = 0;
+					totalPetroSavingsMTD = 0;
+					//other
+					totalOtherGallonsMTD = 0;
+					totalOtherSavings = 0;
+					//pilot fj
+					totalPilotGallonsMTD = 0;
+					totalPilotSavingsMTD = 0;
+					//*** Get each Trucks Escrow and Remaining Balance and total each *** 
+					if(!purchaseList.contains("message"))
+					{
+						for each  purRec in purchaseList
+						{
+							count = count + 1;
+							//info purRec;
+							totalSpendYTD = totalSpendYTD + ifnull(purRec.get("Total_Spend_YTD"),0);
+							totalGallonsYTD = totalGallonsYTD + ifnull(purRec.get("Number_Gallons_YTD"),0);
+							totalSavingsYTD = totalSavingsYTD + ifnull(purRec.get("Savings_YTD"),0);
+							totalSpendMTD = totalSpendMTD + ifnull(purRec.get("Total_Spend_MTD"),0);
+							totalGallonsMTD = totalGallonsMTD + ifnull(purRec.get("Number_Gallons_MTD"),0);
+							totalSavingsMTD = totalSavingsMTD + ifnull(purRec.get("Savings_MTD"),0);
+							//FXRS
+							totalFXRSGallonsMTD = totalFXRSGallonsMTD + ifnull(purRec.get("FEDEXGR_Gallons_MTD"),0);
+							totalFXRSSavingsMTD = totalFXRSSavingsMTD + ifnull(purRec.get("FEDEXGR_Savings"),0);
+							//petro
+							totalPetroGallonsMTD = totalPetroGallonsMTD + ifnull(purRec.get("TA_Petro_Gallons_MTD"),0);
+							totalPetroSavingsMTD = totalPetroSavingsMTD + ifnull(purRec.get("TA_Petro_Savings"),0);
+							//other
+							totalOtherGallonsMTD = totalOtherGallonsMTD + ifnull(purRec.get("OTHER_Gallons_MTD"),0);
+							totalOtherSavings = totalOtherSavings + ifnull(purRec.get("OTHER_Savings"),0);
+							//pilot fj
+							totalPilotGallonsMTD = totalPilotGallonsMTD + ifnull(purRec.get("Pilot_Flying_J_Gallons_MTD"),0);
+							totalPilotSavingsMTD = totalPilotSavingsMTD + ifnull(purRec.get("Pilot_Flying_J_Savings"),0);
+						}
+						newmap.put("Total_Spend_YTD",totalSpendYTD);
+						newmap.put("Total_Gallons_YTD",totalGallonsYTD);
+						newmap.put("Savings_YTD",totalSavingsYTD);
+						newmap.put("Total_Spend_MTD",totalSpendMTD);
+						newmap.put("Total_Gallons_MTD",totalGallonsMTD);
+						newmap.put("Total_Savings_MTD",totalSavingsMTD);
+						// 					fedex
+						newmap.put("FedEx_Gallons_MTD",totalFXRSGallonsMTD);
+						newmap.put("FedEx_Savings",totalFXRSSavingsMTD);
+						// 					ta petro
+						newmap.put("TA_Petro_Gallons_MTD",totalPetroGallonsMTD);
+						newmap.put("TA_Petro_Savings",totalPetroSavingsMTD);
+						// 					other
+						newmap.put("Other_Gallons_MTD",totalOtherGallonsMTD);
+						newmap.put("Other_Savings",totalOtherSavings);
+						// 					pilot fj
+						newmap.put("Pilot_Flying_J_Gallons_MTD",totalPilotGallonsMTD);
+						newmap.put("Pilot_Flying_J_Savings",totalPilotSavingsMTD);
+					}
+				}
+			}
+			//info count;
+			newmap.put("Escrow_Amount",totalEscrow);
+			newmap.put("Credit_Utilized",totalBal);
+			info newmap;
+			updtRecord = zoho.crm.updateRecord("Accounts",recId,newmap);
+			if(updtRecord.containKey("Modified_Time") == false)
+			{
+				pm_map_error.put("Account_ID",recId);
+				pm_map_error.put("Error_Message",updtRecord);
+				// 						info pm_map_error;
+				flag_error = 1;
+			}
+			info updtRecord;
+			//info acctName + " Total Balance = " + totalBal + " Total Escrow = " + totalEscrow;
+		}
+	}
+}
+//info RecCnt;
+if(flag_error == 1)
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"it@teamrel.com"
+		subject :"Escrow Balance Update Failed"
+		message :pm_map_error + "<br><br>"
+	]
+}
+else
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"it@teamrel.com"
+		subject :"Escrow Update Completed"
+		message :"Escrow Update Completed<br><br>"
+	]
+}

@@ -1,0 +1,17 @@
+inpTruckID = Truck_ID.toString();
+info inpTruckID;
+GetMyTruckInfo = zoho.crm.getRecordById("Trucks",inpTruckID);
+info GetMyTruckInfo;
+//firstrec = GetMyTruckInfo.get(0);
+TruckStatusCount = GetMyTruckInfo.get("Truck_Status_Counter");
+TruckStatusDate = GetMyTruckInfo.get("Truck_Status_Date");
+// info TruckStatusCount;
+newmap = Map();
+TruckStatusCount = 1;
+TruckStatusDate = today;
+info TruckStatusCount;
+info TruckStatusDate;
+newmap.put("Truck_Status_Counter",TruckStatusCount.toString());
+newmap.put("Truck_Status_Date",TruckStatusDate.toDate());
+updtRecord = zoho.crm.updateRecord("Trucks",inpTruckID,newmap);
+info updtRecord;

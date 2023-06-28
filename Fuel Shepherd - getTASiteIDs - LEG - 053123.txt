@@ -1,0 +1,92 @@
+//set to false to enable prod mode, true for dev mode
+enableSandbox = false;
+headersMap = Map();
+paramsMap = Map();
+correlationId = "cd8a4945-3e32-4d74-b7b5-3a2d1b7b7d7c";
+tempMap = {"app_name":"get_ta_token","correlation_id":correlationId,"client_id":zoho.crm.getOrgVariable("fsAPIClientID"),"client_secret":zoho.crm.getOrgVariable("fsAPIClientSecret")};
+headersMap.putAll(tempMap);
+tempMap.clear();
+data = Map();
+msg = "";
+devHostURL = "https://api-d1.accessta.com";
+prodHostURL = "https://api.accessta.com";
+ta_auth_token_api_call = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v2/functions/requesttokenfromta/actions/execute?auth_type=apikey&zapikey=1003.1f15b82919b7cf94785325320ccb4609.46b21668c003c554563ef1c67169ff95"
+	type :GET
+	headers:headersMap
+];
+headersMap.clear();
+details = ta_auth_token_api_call.get("details");
+ta_auth_token = details.get("output");
+//info "token: " + ta_auth_token;
+headersMap.put("app_name","Postman");
+headersMap.put("correlation_id",correlationId);
+headersMap.put("authorization","Bearer " + ta_auth_token);
+// paramsMap.put("client_id",zoho.crm.getOrgVariable("fsAPIClientID"));
+// paramsMap.put("client_secret",zoho.crm.getOrgVariable("fsAPIClientSecret"));
+if(enableSandbox)
+{
+	tempURL = devHostURL;
+}
+else
+{
+	tempURL = prodHostURL;
+}
+// paramsMap.put("audience",tempURL);
+// paramsMap.put("grant_type","client_credentials");
+response = invokeurl
+[
+	url :tempURL + "/location-services/1/locations"
+	type :GET
+	parameters:paramsMap.toString()
+	headers:headersMap
+];
+paramsMap.clear();
+headersMap.clear();
+//info response;
+if(response.length() > 0)
+{
+	info response;
+	data.put("JSONString",response);
+	//info left(response,response.length());
+	if(response.notContains("error"))
+	{
+		for each  rec in data
+		{
+			//info rec;
+			msg = "Message: " + rec.get("message");
+		}
+	}
+	else
+	{
+		for each  rec in data
+		{
+			//info rec;
+			if(rec.contains("error_details"))
+			{
+				for each  detail in rec
+				{
+					//info detail;
+					for each  error_info in detail
+					{
+						//info error_info;
+						for each  error_details in error_info
+						{
+							for each  i in error_details
+							{
+								msg = i.get("id") + " :: " + i.get("error_message") + " :: " + i.get("description");
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				//info "here";
+			}
+		}
+	}
+	info msg.htmlEncode();
+	data.clear();
+}
