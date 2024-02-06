@@ -1,0 +1,42 @@
+inpAcctName = acctName;
+creditID = "";
+creditRec = zoho.crm.getRelatedRecords("Credit_Record","Accounts",acctID);
+info "creditRec size: " + creditRec.size();
+inpAcctID = acctID;
+inpContactID = contactID;
+inpCreditLimit = creditLimit;
+inpCreditUtilized = creditUtilized;
+if(!lastCreditReview.isNull())
+{
+	inpLastCreditRev = lastCreditReview.toTime("yyyy-MM-dd'T'HH:mm:ss").toString("yyyy-MM-dd'T'HH:mm:ss") + "Z";
+}
+inpCreditNeeded = creditNeeded;
+inpProposalID = proposalID;
+mp = Map();
+mp.put("Credit_Needed",inpCreditNeeded);
+mp.put("Credit_Utilized",inpCreditUtilized);
+mp.put("Current_Credit_Limit",inpCreditLimit);
+mp.put("Last_Credit_Review",inpLastCreditRev);
+if(creditRec.size() == 0)
+{
+	mp.put("Account_Name",inpAcctID);
+	mp.put("Contact_Name",inpContactID);
+	mp.put("Proposal_Name",inpProposalID);
+	mp.put("Status","Needs Review");
+	//sammy's user id
+	mp.put("Owner","4816208000015845001");
+	mp.put("Name",inpAcctName + " Credit File");
+	createRec = zoho.crm.createRecord("Credit",mp);
+	creditID = createRec.get("id");
+	info "created Credit File: " + createRec;
+}
+else if(creditRec.size() > 0 && !creditRec.toUpperCase().containValue("ERROR"))
+{
+	for each  rec in creditRec
+	{
+		creditID = rec.get("id");
+	}
+	updateRec = zoho.crm.updateRecord("Credit",creditID,mp);
+	info "updated Credit File: " + updateRec;
+}
+info "creditID: " + creditID;

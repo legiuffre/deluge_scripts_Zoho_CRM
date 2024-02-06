@@ -1,0 +1,76 @@
+//LEG - 8/28/23
+inpSOID = soID;
+count = 0;
+SORec = zoho.crm.getRecordById("INS_Sales_Orders",inpSOID);
+info SORec;
+count = count + 1;
+Quote_Name = SORec.get("Quote_Name");
+Proposal_Name = SORec.get("Proposal_Name");
+LayoutID = SORec.get("Layout").get("id");
+quoteID = Quote_Name.get("id");
+propID = Proposal_Name.get("id");
+info propID;
+info quoteID;
+response = zoho.crm.searchRecords("INS_Sales_Orders","(Quote_Name:equals:" + quoteID + ")");
+if(LayoutID == "4816208000085231181")
+{
+	//SO is non leased - so we create INS truck records when SO is approved
+	// 	info response;
+	for each  resp in response
+	{
+		truckVIN = ifnull(resp.get("INS_Truck_VIN"),"");
+		searchRecords = zoho.crm.searchRecords("INS_Trucks","(Name:equals:" + truckVIN + ")");
+		if(searchRecords.size() > 0)
+		{
+			break;
+		}
+		// 		info "related so: " + resp;
+		if(truckVIN != "" && resp.get("Status") == "Approved")
+		{
+			includeNTL = false;
+			INSTruckMap = Map();
+			INSTruckMap.put("Account_Name",resp.get("Account_Name").get("id"));
+			INSTruckMap.put("Contact_Name",resp.get("Contact_Name").get("id"));
+			INSTruckMap.put("Contact_Email",ifnull(resp.get("Email"),""));
+			INSTruckMap.put("Insured_Amt",ifnull(resp.get("FMV"),0));
+			INSTruckMap.put("Status","Active");
+			INSTruckMap.put("PhysDam_Deductible",ifnull(resp.get("PhysDam_Deductible"),0));
+			INSTruckMap.put("PhysDam_Rate",ifnull(resp.get("PhysDam_Rate"),0));
+			if(resp.get("Include_NTL") == "Yes")
+			{
+				includeNTL = true;
+			}
+			INSTruckMap.put("Include_NTL",includeNTL);
+			INSTruckMap.put("Name",truckVIN);
+			INSTruckMap.put("Truck_Year",resp.get("INS_Truck_Year"));
+			INSTruckMap.put("Truck_Make",resp.get("INS_Truck_Make"));
+			INSTruckMap.put("Truck_Model",resp.get("INS_Truck_Model"));
+			INSTruckMap.put("NTL_Wkly_Amt",ifnull(resp.get("NTL_Wkly_Amt"),0));
+			INSTruckMap.put("PhysDam_Wkly_Amt",ifnull(resp.get("PhysDam_Wkly_Amt"),0));
+			INSTruckMap.put("REL_s_Monthly_PhysDam_Pmt",ifnull(resp.get("Monthly_PhysDam_Amt"),0));
+			INSTruckMap.put("NTL_Monthly_Pmt",ifnull(resp.get("Monthly_NTL_Amt"),0));
+			createINSTruckRec = zoho.crm.createRecord("INS_Trucks",INSTruckMap);
+			info "created Truck rec: " + createINSTruckRec;
+		}
+	}
+}
+info response.size();
+for each  relatedSORec in response
+{
+	info "recID: " + relatedSORec.get("id");
+	if(relatedSORec.get("id") != inpSOID)
+	{
+		if(relatedSORec.get("Status") == "Approved")
+		{
+			count = count + 1;
+		}
+	}
+}
+info count;
+if(count == response.size())
+{
+	statusMap = Map();
+	statusMap.put("Stage","Complete");
+	update = zoho.crm.updateRecord("Deals",propID,statusMap);
+	info update;
+}

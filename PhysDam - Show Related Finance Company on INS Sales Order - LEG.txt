@@ -1,0 +1,31 @@
+SalesOrderInfo = zoho.crm.getRecordById("INS_Sales_Orders",soID);
+financeCompanyName = SalesOrderInfo.get("Finance_Company_Name");
+info "finance comp name: " + financeCompanyName;
+accountRec = zoho.crm.searchRecords("Accounts","(Account_Name:equals:" + financeCompanyName + ")");
+for each  account in accountRec
+{
+	financeCompanyID = account.get("id");
+}
+info "Acc Rec: " + accountRec;
+info "finance comp ID: " + financeCompanyID;
+orgInfo = Map();
+orgInfo = zoho.crm.invokeConnector("crm.getorg",orgInfo).get("response").toJSONList().get(0).get("org").get(0);
+orgID = orgInfo.get("zgid");
+// info orgInfo;
+environment = if(orgID == 781271921,"Sandbox","Production");
+if(environment == "Sandbox")
+{
+	urlToRedirectTo = "https://crmsandbox.zoho.com/crm/devsandboxed/tab/Accounts/" + financeCompanyID;
+}
+else
+{
+	urlToRedirectTo = "https://crm.zoho.com/crm/org747501552/tab/Accounts/" + financeCompanyID;
+}
+//Create XML to return clickable  link
+responseXML = "";
+responseXML = responseXML + "<record>";
+responseXML = responseXML + "<row no=\" 0 \">";
+responseXML = responseXML + "<FL val=\"Name\" link=\"true\" url=\"" + urlToRedirectTo + "\" >" + zoho.crm.getRecordById("Accounts",financeCompanyID).get("Account_Name") + "</FL>";
+responseXML = responseXML + "</row>";
+responseXML = responseXML + "</record>";
+return responseXML;

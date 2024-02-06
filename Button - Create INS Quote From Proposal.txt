@@ -1,0 +1,145 @@
+try 
+{
+	//LEG - 8/24/23
+	inpProposalID = proposalID;
+	proposalMap = Map();
+	proposalMap.put("proposalID",inpProposalID);
+	GetMyProposalInfo = zoho.crm.getRecordById("Deals",inpProposalID);
+	Account_Details = GetMyProposalInfo.get("Account_Name");
+	email = GetMyProposalInfo.get("Contact_Email");
+	propLayout = GetMyProposalInfo.get("Layout");
+	physDamDeductible = GetMyProposalInfo.get("PhysDam_Deductible");
+	physDamRate = GetMyProposalInfo.get("PhysDam_Rate");
+	acctID = Account_Details.get("id");
+	response = zoho.crm.searchRecords("INS_Quotes","(Proposal_Name:equals:" + inpProposalID + ") and (Account_Name:equals:" + acctID + ")");
+	info response.size();
+	if(response.size() == 0)
+	{
+		Contact_Details = GetMyProposalInfo.get("Contact_Name");
+		contactID = Contact_Details.get("id");
+		Truck_Information = GetMyProposalInfo.get("Truck_Information");
+		info Truck_Information;
+		quoteMap = Map();
+		quoteMap.put("Subject",ifnull(GetMyProposalInfo.get("Deal_Name"),"Please enter Quote Name"));
+		quoteMap.put("Name",ifnull(GetMyProposalInfo.get("Deal_Name"),"Please enter Quote Name"));
+		quoteMap.put("Account_Name",acctID);
+		quoteMap.put("Contact_Name",contactID);
+		quoteMap.put("Email",email);
+		//proposal layout is non lease - assign to non lease ins quote layout
+		info "propLayout: " + propLayout;
+		if(propLayout.get("id") == "4816208000082727091")
+		{
+			info "non leased";
+			enableLeaseLayout = false;
+			quoteMap.put("Layout",{"id":"4816208000084015030"});
+			quoteMap.put("PhysDam_Deductible",physDamDeductible);
+			quoteMap.put("PhysDam_Rate",physDamRate);
+		}
+		else
+		{
+			info "leased";
+			enableLeaseLayout = true;
+			quoteMap.put("Layout","4816208000067477001");
+		}
+		quoteMap.put("Mobile",GetMyProposalInfo.get("Mobile"));
+		quoteMap.put("Proposal_Name",inpProposalID);
+		info quoteMap;
+		updateQuoteRec = zoho.crm.createRecord("INS_Quotes",quoteMap);
+		info updateQuoteRec;
+		if(updateQuoteRec.containKey("Modified_Time"))
+		{
+			// 		quoteID = "4819297000062446046";
+			quoteID = updateQuoteRec.get("id");
+			info quoteID;
+			plist = list();
+			for each  data in Truck_Information
+			{
+				mp = Map();
+				if(enableLeaseLayout)
+				{
+					//leased
+					NTLWklyAmt = ifnull(data.get("NTL_Wkly_Amt"),0);
+					FMV = ifnull(data.get("FMV"),0);
+					includeNTL = ifnull(data.get("Include_NTL"),"");
+					curTotalWklyPmt = data.get("Current_Wkly_Payment").toDecimal() + data.get("Property_Tax").toDecimal() + data.get("Weekly_Escrow_Pmt").toDecimal();
+					newTotalWklyPmt = data.get("New_Total_Wkly_Pmt");
+					mp.put("Truck_VIN",data.get("Truck_VIN"));
+					physDamWklyPmt = data.get("PhysDam_Wkly_Amount").toDecimal() + NTLWklyAmt;
+					mp.put("PhysDam_Wkly_Amount",data.get("PhysDam_Wkly_Amount"));
+				}
+				else
+				{
+					//non leased
+					physDamDeductible = data.get("PhysDam_Deductible");
+					physDamRate = data.get("PhysDam_Rate");
+					NTLWklyAmt = ifnull(data.get("INS_NTL_Wkly_Amt"),0);
+					PhysDamWklyAmt = ifnull(data.get("PhysDam_Wkly_Amt"),0);
+					includeNTL = ifnull(data.get("Include_NTL"),"");
+					curTotalWklyPmt = data.get("Total_Wkly_Truck_Amt");
+					FMV = ifnull(data.get("Insured_Value"),0);
+					totalWklyTruckPmt = ifnull(data.get("Total_Wkly_Truck_Amt"),0);
+					mp.put("INS_Truck_VIN",data.get("INS_Truck_VIN"));
+					mp.put("PhysDam_Wkly_Amount",PhysDamWklyAmt);
+					physDamWklyPmt = PhysDamWklyAmt + NTLWklyAmt;
+					newTotalWklyPmt = totalWklyTruckPmt + NTLWklyAmt + PhysDamWklyAmt;
+				}
+				mp.put("FMV",FMV);
+				mp.put("PhysDam_Wkly_Pmt",physDamWklyPmt);
+				mp.put("Current_Total_Wkly_Pmt",curTotalWklyPmt);
+				mp.put("New_Total_Wkly_Pmt",newTotalWklyPmt);
+				mp.put("Include_NTL",includeNTL);
+				mp.put("NTL_Wkly_Amt",NTLWklyAmt);
+				// 					}	
+				plist.add(mp);
+				// 			info "plist: " + plist;			
+			}
+			updateQuoteMap = Map();
+			updateQuoteMap.put("PhysDam_Deductible",physDamDeductible);
+			updateQuoteMap.put("PhysDam_Rate",physDamRate);
+			updateQuoteMap.put("INS_Quoted_Items",plist);
+			info updateQuoteMap;
+			updateProductInfoRecord = zoho.crm.updateRecord("INS_Quotes",quoteID,updateQuoteMap);
+			msg = "SUCCESS!!";
+			if(updateProductInfoRecord.containKey("Modified_Time"))
+			{
+				// 			msg = msg + " INS Quoted items were added to quote.";
+				info updateProductInfoRecord;
+				r_Deal_Record = zoho.crm.getRecordById("INS_Quotes",quoteID);
+				Subform = r_Deal_Record.get("INS_Quoted_Items");
+				info "sub:" + Subform;
+				statusMap = Map();
+				statusMap.put("Stage","Quote Generated");
+				updateProposalRec = zoho.crm.updateRecord("Deals",inpProposalID,statusMap);
+				info updateProposalRec;
+			}
+			orgInfo = Map();
+			orgInfo = zoho.crm.invokeConnector("crm.getorg",orgInfo).get("response").toJSONList().get(0).get("org").get(0);
+			orgID = orgInfo.get("zgid");
+			// info orgInfo;
+			environment = if(orgID == 781271921,"Sandbox","Production");
+			if(environment == "Sandbox")
+			{
+				openUrl("https://crmsandbox.zoho.com/crm/devsandboxed/tab/CustomModule18/" + quoteID,"parent window");
+			}
+			else
+			{
+				openUrl("https://crm.zoho.com/crm/org747501552/tab/CustomModule18/" + quoteID,"parent window");
+			}
+		}
+	}
+	else
+	{
+		msg = "Draft Quote was already created";
+	}
+}
+catch (e)
+{
+	info e.lineNo;
+	// Displays line number of the statement that caused the error 
+	info e.message;
+	// Displays the error message 
+	info e;
+	// Displays both line number and error message 
+	msg = "There was an error in the scripting, please contact the System Adminstrator.";
+}
+return msg;

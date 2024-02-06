@@ -1,0 +1,189 @@
+inpSO_Id = SO_ID.toString();
+//**Pull VIN Sales Order record ID
+GetMySOInfo = zoho.crm.getRecordById("Sales_Orders",inpSO_Id);
+info GetMySOInfo;
+SOTrkVIN = GetMySOInfo.get("VIN");
+SODomNum = GetMySOInfo.get("Domicile_Number");
+SODomCity = GetMySOInfo.get("Domicile_City");
+SODomState = GetMySOInfo.get("Domicile_State");
+InServiceDate = GetMySOInfo.get("In_Service_Date");
+SODownPmt = GetMySOInfo.get("Down_Payment");
+IntRate = GetMySOInfo.get("Interest_Rate");
+TrkPrice = ifnull(GetMySOInfo.get("Total_Truck_Price"),0);
+PhysDamDeduct = ifnull(GetMySOInfo.get("PhysDam_Deductible"),0);
+PhysDamRate = ifnull(GetMySOInfo.get("PhysDam_Rate"),0);
+PhysDamPremium = ifnull(GetMySOInfo.get("PhysDam_Wkly_Premium"),0);
+WklyPropTaxPmt = GetMySOInfo.get("Wkly_Property_Tax_Payment");
+YrlyPropTaxPmt = GetMySOInfo.get("Yearly_Estimated_Property_Tax");
+ProdCode = GetMySOInfo.get("ProductCode");
+Tango = GetMySOInfo.get("Tango");
+IncludeNTL = ifnull(GetMySOInfo.get("Include_NTL"),"");
+NtlWklyAmt = ifnull(GetMySOInfo.get("NTL_Wkly_Amt"),0);
+Terms = GetMySOInfo.get("Terms_Weeks");
+Residual = GetMySOInfo.get("Residual_3");
+WeeklyPayment = GetMySOInfo.get("Est_Wkly_Equipment_PMT");
+EscrowPayment = GetMySOInfo.get("Wkly_Escrow_Payment");
+info "Product Code = " + ProdCode;
+info "Deductable = " + PhysDamDeduct;
+info "PhysDam Rate = " + PhysDamRate;
+info "PhysDam Premium = " + PhysDamPremium;
+info "Truck Price = " + TrkPrice;
+//info SOTrkVIN;
+info "Domicile Info: " + SODomNum + " " + SODomCity + " " + SODomState;
+SOOrderedItems = GetMySOInfo.get("Product_Details");
+//info "Ordered Items = " + SOOrderedItems;
+for each  prodLine in SOOrderedItems
+{
+	product = prodLine.get("product");
+	info "Product = " + product;
+	itemProdCode = product.get("Product_Code");
+	info "Item Product Code = " + itemProdCode;
+	if(itemProdCode == ProdCode)
+	{
+		prodID = product.get("id");
+		info "Product ID = " + prodID;
+		warrantyInfo = product.get("Extended_Warranty_Info");
+		info "Warranty Info: " + warrantyInfo;
+	}
+}
+// **** Monthly PhysDam Payment Calculation *****
+if(PhysDamRate == 0)
+{
+	MthyPhysDamPmt = 0;
+}
+else
+{
+	MthyPhysDamPmt = (TrkPrice * PhysDamRate) / 12;
+}
+//*******************************
+// **** Monthly NTL Payment Calculation *****
+if(IncludeNTL)
+{
+	MthlyNtlPmt = round((NtlWklyAmt * 52) / 12,2);
+}
+else
+{
+	MthlyNtlPmt = 0;
+}
+//*******************************
+TruckId = SOTrkVIN.get("id");
+info "TruckID = " + TruckId;
+GetMyInvRec = zoho.crm.getRelatedRecords("Invoices","Sales_Orders",inpSO_Id);
+for each  InvRec in GetMyInvRec
+{
+	InvoiceID = InvRec.get("id");
+	info "Invoice ID # = " + InvoiceID;
+	GetMyInvInfo = zoho.crm.getRecordById("Invoices",InvoiceID);
+	//info GetMyInvInfo;
+	InvDate = GetMyInvInfo.get("Invoice_Date");
+	//info "Invoice Date = " + InvDate;
+	MyProdDetail = GetMyInvInfo.get("Product_Details");
+	info MyProdDetail;
+	for each  product in MyProdDetail
+	{
+		//info product;
+		ProdDetail = product.get("product");
+		info ProdDetail;
+		ProdName = ProdDetail.get("name");
+		info ProdName;
+		if(ProdName = "Deposit")
+		{
+			DAPmt = "$" + product.get("total").toString();
+			info DAPmt;
+		}
+	}
+}
+//info TruckId;
+// **** Search for Truck Record using VIN ID
+GetMyTruckInfo = zoho.crm.getRecordById("Trucks",TruckId);
+// ***** Get Truck Year, Make, Model, and Finance Company
+FinComp = GetMyTruckInfo.get("Lease_Company");
+TrkYear = GetMyTruckInfo.get("Truck_Year");
+TrkMake = GetMyTruckInfo.get("Truck_Make");
+TrkModel = GetMyTruckInfo.get("Truck_Model");
+TrkInServiceDate = ifnull(GetMyTruckInfo.get("Contract_In_Service_Date"),"");
+Term = ifnull(GetMyTruckInfo.get("Terms_Weeks"),0);
+//info FinComp;
+//info TrkYear + " " + TrkMake + " " + TrkModel;
+//FinComp = "Toyota";
+FormId = "";
+// ***** Determine Form ID based on Finance Company ******
+// **** Change Form numbers as needed **********
+if(FinComp == "VFS")
+{
+	FormId = "hTev7ArADejrtJmG2vzE5c";
+}
+if(FinComp == "Daimler")
+{
+	FormId = "5sLXmHtK9AzsBA6EUBvsrh";
+}
+if(FinComp == "ENGS")
+{
+	FormId = "hTev7ArADejrtJmG2vzE5c";
+}
+if(FinComp == "Kriete")
+{
+	FormId = "hTev7ArADejrtJmG2vzE5c";
+}
+if(FinComp == "Mercedes")
+{
+	FormId = "hTev7ArADejrtJmG2vzE5c";
+}
+if(FinComp == "Toyota")
+{
+	FormId = "hTev7ArADejrtJmG2vzE5c";
+}
+//info FormId;
+//  ****** Update Fields in Sales Order *******
+newmap = Map();
+newmap.put("Finance_Company",FinComp);
+newmap.put("Truck_Year",TrkYear);
+newmap.put("Truck_Make",TrkMake);
+newmap.put("Truck_Model",TrkModel);
+newmap.put("FormID",FormId);
+upd_Results = zoho.crm.updateRecord("Sales_Orders",inpSO_Id,newmap);
+info "SO Map = " + newmap;
+//  ****** Update Fields in Truck File *******
+newmap = Map();
+info PhysDamPremium;
+newmap.put("Domicile_Number",SODomNum);
+newmap.put("Domicile_City",SODomCity);
+newmap.put("Domicile_State",SODomState);
+newmap.put("DA_Date",InvDate);
+newmap.put("DA_Payment",DAPmt);
+if(TrkInServiceDate == "")
+{
+	//truck in service start date = lease start date
+	//in service date = SO date
+	newmap.put("Lease_Start_Date",InServiceDate);
+	newmap.put("Lease_Expiration",InServiceDate.addWeek(Term));
+}
+else
+{
+	newmap.put("Lease_Expiration",TrkInServiceDate.addWeek(Term));
+}
+//contract in service date
+newmap.put("Contract_In_Service_Date",InServiceDate);
+newmap.put("Lease_Signed_Date",today);
+newmap.put("Down_Payment",SODownPmt);
+newmap.put("Interest_Rate",IntRate);
+newmap.put("PhysDam_Deductible",PhysDamDeduct);
+newmap.put("PhysDam_Rate",PhysDamRate);
+newmap.put("PhysDam_Wkly_Premium",PhysDamPremium);
+newmap.put("Product_Code",prodID);
+newmap.put("REL_s_Monthly_PhysDam_Pmt",MthyPhysDamPmt);
+newmap.put("Yearly_Property_Tax_Payment",YrlyPropTaxPmt);
+newmap.put("Weekly_Property_Tax_Payment",WklyPropTaxPmt);
+newmap.put("Tango",Tango);
+newmap.put("Include_NTL",IncludeNTL);
+newmap.put("NTL_Monthly_Pmt",MthlyNtlPmt);
+newmap.put("Financed_Amount",TrkPrice);
+newmap.put("Terms_Weeks",Terms);
+newmap.put("Residual",Residual);
+newmap.put("Weekly_Payment",WeeklyPayment);
+newmap.put("Weekly_Escrow_Payment",EscrowPayment);
+newmap.put("Standard_Warranty_Info",warrantyInfo);
+info "TruckId = " + TruckId;
+info "Truck Map = " + newmap;
+upd_Results = zoho.crm.updateRecord("Trucks",TruckId,newmap);
+info upd_Results;

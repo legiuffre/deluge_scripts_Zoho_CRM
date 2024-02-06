@@ -1,0 +1,67 @@
+try 
+{
+	inpSOID = SOID;
+	entityMap = zoho.crm.getRecordById("Sales_Orders",inpSOID);
+	inpTotalTruckPrice = ifnull(entityMap.get("Total_Truck_Price"),0);
+	inpDomNum = entityMap.get("Domicile_Number");
+	inpWklyEquipmentPmt = entityMap.get("Est_Wkly_Equipment_PMT");
+	inpWklyEscrowPmt = entityMap.get("Wkly_Escrow_Payment");
+	info inpSOID;
+	info inpDomNum;
+	final = Map();
+	YearlyEstimatedTaxPayment = 0;
+	criteriaText = "Name:equals:" + inpDomNum;
+	domiciles = zoho.crm.searchRecords("FedEx_Domiciles",criteriaText,1,1);
+	info domiciles;
+	if(domiciles.size() != 0)
+	{
+		for each  domicile in domiciles
+		{
+			DomCity = domicile.get("City");
+			DomState = domicile.get("State");
+			DomTaxRate = domicile.get("Estimated_Property_Tax_Rate");
+		}
+	}
+	else
+	{
+		DomCity = "No Domicile Exists";
+		DomState = "";
+		DomTaxRate = 0;
+	}
+	YearlyEstimatedTaxPayment = inpTotalTruckPrice.toNumber() * DomTaxRate.toDecimal() / 100;
+	if(DomState == "MO" || DomState == "CT" || DomState == "TX" || DomState == "AK")
+	{
+		WeeklyEstimatedPropertyTax = YearlyEstimatedTaxPayment.toDecimal() / 52;
+		SumWeeklyPayment = inpWklyEscrowPmt + WeeklyEstimatedPropertyTax + inpWklyEquipmentPmt;
+		info SumWeeklyPayment;
+		final.put("Total_Wkly_Payment",round(SumWeeklyPayment.toDecimal(),2));
+	}
+	else
+	{
+		WeeklyEstimatedPropertyTax = 0;
+	}
+	final.put("Wkly_Property_Tax_Payment",round(WeeklyEstimatedPropertyTax,2));
+	final.put("Yearly_Estimated_Property_Tax",round(YearlyEstimatedTaxPayment,2));
+	final.put("Domicile_City",DomCity);
+	final.put("Domicile_State",DomState);
+	info final;
+	update = zoho.crm.updateRecord("Sales_Orders",inpSOID,final);
+	info "UPDATE: " + update;
+	if(update.containKey("Modified_Time") == false)
+	{
+		info "Record was not updated.";
+	}
+	else
+	{
+		info "Record was updated.";
+	}
+}
+catch (e)
+{
+	info e.lineNo;
+	// Displays line number of the statement that caused the error 
+	info e.message;
+	// Displays the error message 
+	info e;
+	// Displays both line number and error message 
+}

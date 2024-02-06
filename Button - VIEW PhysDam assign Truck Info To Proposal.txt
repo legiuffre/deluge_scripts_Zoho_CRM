@@ -1,0 +1,165 @@
+try 
+{
+	//LEG - 8/22/23
+	inpProposalID = proposalID;
+	proposalMap = Map();
+	msg = "";
+	proposalMap.put("proposalID",inpProposalID);
+	proposalInfo = zoho.crm.getRecordById("Deals",inpProposalID);
+	Account_Name = proposalInfo.get("Account_Name");
+	PhysDamDeductible = proposalInfo.get("PhysDam_Deductible");
+	PhysDamRate = proposalInfo.get("PhysDam_Rate");
+	ntlWklyAmt = ifnull(proposalInfo.get("NTL_Wkly_Amount"),0);
+	physDamWklyAmount = 0;
+	newWklyTotalPmt_prop = 0;
+	newWklyTotalPmt = 0;
+	updateList = List();
+	accountID = Account_Name.get("id");
+	TruckInfo = zoho.crm.getRelatedRecords("Trucks","Accounts",accountID);
+	if(TruckInfo.size() == 0)
+	{
+		msg = "No trucks assigned.  ";
+	}
+	else
+	{
+		for each  truck in TruckInfo
+		{
+			truckVIN = truck.get("Name");
+			truckID = truck.get("id");
+			info "VIN: " + truckVIN;
+			info truck.get("Financial_Status");
+			truckMap = Map();
+			truckMap.put("Financial_Status",truck.get("Financial_Status"));
+			truckMap.put("PhysDam_Rate",PhysDamRate);
+			if(truck.get("Financial_Status") == "Leased")
+			{
+				info "Assigning new truck to Proposal";
+				inpNTLAmt = ifnull(truck.get("NTL_Wkly_Amt"),0);
+				inpPDAmtFMV = ifnull(truck.get("PhysDam_Wkly_Premium"),0);
+				FMV = ifnull(truck.get("Fair_Market_Value"),0);
+				wklyEscrowPmt = ifnull(truck.get("Weekly_Escrow_Payment"),0);
+				TruckDetail = truck.get("Truck_Year") + " - " + truck.get("Truck_Make") + " - " + truck.get("Truck_Model");
+				inpCurrentWklyPmt = ifnull(truck.get("Weekly_Payment"),0);
+				currentWklyPmt = inpCurrentWklyPmt - inpNTLAmt - inpPDAmtFMV;
+				propertyTaxPmt = ifnull(truck.get("Weekly_Property_Tax_Payment"),0);
+				includeNTL = ifnull(truck.get("Include_NTL"),"");
+				physDamPolicy = ifnull(truck.get("REL_Phys_Dam_Policy"),"");
+				financedAmount = ifnull(truck.get("Financed_Amount"),0);
+				remainingObg = ifnull(truck.get("Remaining_REL_Obligation"),0);
+				total = 0;
+				if(FMV.toDecimal() <= 0)
+				{
+					total = financedAmount;
+				}
+				else
+				{
+					if(FMV.toDecimal() <= financedAmount.toDecimal())
+					{
+						if(FMV.toDecimal() >= remainingObg.toDecimal())
+						{
+							total = FMV;
+						}
+						else if(FMV.toDecimal() < remainingObg.toDecimal())
+						{
+							total = remainingObg.toDecimal();
+						}
+					}
+					else if(FMV.toDecimal() > financedAmount.toDecimal())
+					{
+						total = financedAmount;
+					}
+				}
+				if(total.toDecimal() > 0)
+				{
+					physDamWklyAmount = round((total.toDecimal() * PhysDamRate.toDecimal()) / 52,2);
+					info "physDamWklyAmount: " + physDamWklyAmount;
+					if(currentWklyPmt.toDecimal() > 0)
+					{
+						info ntlWklyAmt;
+						newWklyPmt = round(currentWklyPmt.toDecimal() + physDamWklyAmount.toDecimal() + ntlWklyAmt.toDecimal(),2);
+						newWklyTotalPmt = round(newWklyPmt.toDecimal() + propertyTaxPmt.toDecimal() + wklyEscrowPmt.toDecimal(),2);
+						truckInfoUpdateMap = Map();
+						truckInfoUpdateMap.put("New_Weekly_Pmt",newWklyPmt);
+						truckInfoUpdateMap.put("Weekly_Escrow_Pmt",wklyEscrowPmt);
+						truckInfoUpdateMap.put("Truck_Detail",TruckDetail);
+						truckInfoUpdateMap.put("PhysDam_Wkly_Amount",physDamWklyAmount);
+						truckInfoUpdateMap.put("Current_Wkly_Payment",currentWklyPmt);
+						truckInfoUpdateMap.put("Property_Tax",propertyTaxPmt);
+						truckInfoUpdateMap.put("New_Total_Wkly_Pmt",newWklyTotalPmt);
+						truckInfoUpdateMap.put("PhysDam_Policy",physDamPolicy);
+						if(ntlWklyAmt > 0)
+						{
+							includeNTL = 'Yes';
+						}
+						else
+						{
+							includeNTL = 'No';
+							ntlWklyAmt = 0;
+						}
+						truckInfoUpdateMap.put("Include_NTL",includeNTL);
+						truckInfoUpdateMap.put("NTL_Wkly_Amt",ntlWklyAmt);
+						truckInfoUpdateMap.put("FMV",total);
+						truckInfoUpdateMap.put("Truck_VIN",truckID);
+						info "trucKInfoUpdateMap: " + truckInfoUpdateMap;
+					}
+					else
+					{
+						msg = "No total or current weekly payment are assigned.  ";
+					}
+					if(truckInfoUpdateMap.size() > 0)
+					{
+						updateList.add(truckInfoUpdateMap);
+					}
+				}
+			}
+		}
+	}
+	if(updateList.size() > 0)
+	{
+		updateTruckInfoRecord = zoho.crm.updateRecord("Deals",inpProposalID,{"Truck_Information":updateList.toJsonList()});
+		info updateTruckInfoRecord;
+		ProductInfo = zoho.crm.searchRecords("Products","Product_Code:equals:999901");
+		// info ProductInfo;
+		for each  prod in ProductInfo
+		{
+			productID = prod.get("id");
+		}
+		info productID;
+		productMap = Map();
+		productMap.put("Product_Code_1","999901");
+		productMap.put("Product_Name",productID);
+		productMap.put("Qty","1");
+		productMap.put("Unit_Price_1","0");
+		updateProductInfoRecord = zoho.crm.updateRecord("Deals",inpProposalID,{"Truck_Items":productMap.toJsonList()});
+		info updateProductInfoRecord;
+		if(updateTruckInfoRecord.containKey("Modified_Time"))
+		{
+			msg = msg + "Truck Info was updated.  ";
+			info updateTruckInfoRecord.get("id");
+			info zoho.crm.getRecordById("Deals",updateTruckInfoRecord.get("id"));
+		}
+		else
+		{
+			msg = msg + "There was an error processing the truck info.  ";
+		}
+		// if(updateProductInfoRecord.containKey("Modified_Time"))
+		// {
+		// 	msg = msg + "Product Info was updated.  ";
+		// }
+		// else
+		// {
+		// 	msg = msg + "There was an error processing the product info.  ";
+		// }	
+	}
+}
+catch (e)
+{
+	info e.lineNo;
+	// Displays line number of the statement that caused the error 
+	info e.message;
+	// Displays the error message 
+	info e;
+	// Displays both line number and error message 
+	msg = "Information is missing from the trucks, please review before assigning again.";
+}
+return msg;

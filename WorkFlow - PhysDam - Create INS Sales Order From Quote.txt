@@ -1,0 +1,185 @@
+//LEG 8/22/2023
+try 
+{
+	inpQuoteID = quoteID;
+	// info inpQuoteID;
+	quoteMap = Map();
+	quoteMap.put("quoteID",inpQuoteID);
+	GetMyQuoteInfo = zoho.crm.getRecordById("INS_Quotes",inpQuoteID);
+	info GetMyQuoteInfo;
+	Account_Details = GetMyQuoteInfo.get("Account_Name");
+	acctID = Account_Details.get("id");
+	LayoutID = GetMyQuoteInfo.get("Layout").get("id");
+	response = zoho.crm.searchRecords("INS_Sales_Orders","(Proposal_Name:equals:" + inpQuoteID + ") and (Status:equals:Created) and (Account_Name:equals:" + acctID + ")");
+	msg = "";
+	info response.size();
+	if(response.size() == 0)
+	{
+		quotedItems = GetMyQuoteInfo.get("INS_Quoted_Items");
+		info quotedItems;
+		Proposal_Details = GetMyQuoteInfo.get("Proposal_Name");
+		Contact_Details = GetMyQuoteInfo.get("Contact_Name");
+		physdamDeductible = GetMyQuoteInfo.get("PhysDam_Deductible");
+		physdamRate = GetMyQuoteInfo.get("PhysDam_Rate");
+		contractDate = "";
+		for each  data in quotedItems
+		{
+			// 				info "data: " + data;
+			soMap = Map();
+			wklyEscrow = 0;
+			zonarFee = 0;
+			wklyPropTax = 0;
+			leasePmt = 0;
+			wklyPmt = 0;
+			dpDocFeee = 0;
+			lossLimit = 0;
+			if(LayoutID == "4816208000084015030")
+			{
+				//non leased
+				truckVIN = data.get("INS_Truck_VIN");
+				info "nonleased: " + truckVIN;
+				FMV = ifnull(data.get("FMV"),0);
+				physDamWklyAmt = ifnull(data.get("PhysDam_Wkly_Amount"),0);
+				physDamWklyPmt = ifnull(data.get("PhysDam_Wkly_Pmt"),0);
+				leasePmt = ifnull(data.get("New_Total_Wkly_Pmt"),0);
+				includeNTL = ifnull(data.get("Include_NTL"),"");
+				ntlWklyAmt = ifnull(data.get("NTL_Wkly_Amt"),0);
+				soMap.put("INS_Truck_VIN",truckVIN);
+				queryStr = "SELECT Parent_Id,INS_Truck_VIN, id, INS_Truck_Make, INS_Truck_Model, INS_Truck_Year, INS_Truck_Type, Monthly_PhysDam_Amt, Monthly_NTL_Amt FROM Truck_Information WHERE INS_Truck_VIN = '" + truckVIN + "'";
+				queryMap = Map();
+				queryMap.put("select_query",queryStr);
+				response = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v2/coql"
+					type :POST
+					parameters:queryMap.toString()
+					connection:"coql"
+				];
+				data = response.get("data");
+				soMap.put("Layout","4816208000085231181");
+				for each  i in data
+				{
+					soMap.put("INS_Truck_Make",i.get("INS_Truck_Make"));
+					soMap.put("INS_Truck_Model",i.get("INS_Truck_Model"));
+					soMap.put("INS_Truck_Year",i.get("INS_Truck_Year"));
+					soMap.put("INS_Truck_Type",i.get("INS_Truck_Type"));
+					soMap.put("Monthly_NTL_Amt",i.get("Monthly_NTL_Amt"));
+					soMap.put("Monthly_PhysDam_Amt",i.get("Monthly_PhysDam_Amt"));
+				}
+			}
+			else
+			{
+				truckVIN = data.get("Truck_VIN").get("name");
+				includeNTL = ifnull(data.get("Include_NTL"),"");
+				ntlWklyAmt = ifnull(data.get("NTL_Wkly_Amt"),0);
+				physDamWklyAmt = ifnull(data.get("PhysDam_Wkly_Amount"),0);
+				physDamWklyPmt = ifnull(data.get("PhysDam_Wkly_Pmt"),0);
+				soMap.put("Layout","4816208000067478245");
+				info truckVIN;
+				if(truckVIN.size() > 0)
+				{
+					truck_resp = zoho.crm.searchRecords("Trucks","(Name:equals:" + truckVIN + ")");
+					// 			info truck_resp;
+					truckID = data.get("Truck_VIN").get("id");
+					info truckID;
+					soMap.put("Truck_VIN",truckID);
+					// 			info truck_resp;
+					info now.toDate();
+					FMV = ifnull(data.get("FMV"),0);
+					for each  truck in truck_resp
+					{
+						wklyEscrow = ifnull(truck.get("Weekly_Escrow_Payment"),0);
+						zonarFee = ifnull(truck.get("Zonar_Fee"),8.5);
+						wklyPropTax = ifnull(truck.get("Weekly_Property_Tax_Payment"),0);
+						wklyPmt = ifnull(truck.get("Weekly_Payment"),0);
+						solutionCenterFee = ifnull(truck.get("Solution_Center_Fee"),15);
+						contractDate = ifnull(truck.get("Lease_Start_Date"),now);
+						financeCompany = ifnull(truck.get("Lease_Company"),"");
+						productNameInfo = ifnull(truck.get("Product_Code"),"");
+						downPmt = ifnull(truck.get("Down_Payment"),0);
+						financedAmt = ifnull(truck.get("Financed_Amount"),0);
+						legalBusName = "";
+						productID = productNameInfo.get("id");
+						info "productID: " + productID;
+						productRec = zoho.crm.getRecordById("Products",productID);
+						// 				info "products: " + products;
+						adminFee = ifnull(productRec.get("Admin_Fee"),0);
+						titleFee = ifnull(productRec.get("Title_Fee"),0);
+						dpDocFee = adminFee.toDecimal() + titleFee.toDecimal() + downPmt.toDecimal();
+						info "dpDocFee: " + dpDocFee;
+						lossLimit = financedAmt.toDecimal() * .1;
+						leasePmt = wklyPmt.toDecimal() - solutionCenterFee.toDecimal() - zonarFee.toDecimal();
+						info "lease payment: " + leasePmt;
+						if(financeCompany != "")
+						{
+							info "financeCompany: " + financeCompany;
+							financeResp = zoho.crm.searchRecords("Accounts","(Account_Type:equals:Finance Company) and (Account_Name:equals:" + financeCompany + ")");
+							for each  firesp in financeResp
+							{
+								legalBusName = firesp.get("Legal_Business_Name");
+								info "Finance Comp Legal Business Name: " + firesp.get("Legal_Business_Name");
+							}
+						}
+					}
+				}
+				else
+				{
+					soName = "Please enter SO Name/Subject";
+				}
+				if(contractDate != "")
+				{
+					soMap.put("Contract_Date",contractDate.toDate());
+				}
+				soMap.put("Mobile",GetMyQuoteInfo.get("Mobile"));
+				soMap.put("Finance_Company_Name",financeCompany);
+				soMap.put("Finance_Company_Legal_Business_Name",legalBusName);
+				soMap.put("VIN",truckID);
+				soMap.put("DP_Doc_Fee",dpDocFee);
+				soMap.put("Loss_Limit",lossLimit);
+				soMap.put("Solution_Center_Fee",solutionCenterFee.toDecimal());
+				soMap.put("Wkly_Escrow",wklyEscrow.toDecimal());
+				soMap.put("Zonar_Fee",zonarFee.toDecimal());
+				soMap.put("Wkly_Property_Tax",wklyPropTax.toDecimal());
+			}
+			soName = Account_Details.get("name") + " - " + truckVIN + " - PhysDam";
+			soMap.put("Status","Created");
+			soMap.put("Subject",soName);
+			soMap.put("Name",soName);
+			soMap.put("Account_Name",acctID);
+			soMap.put("Contact_Name",Contact_Details.get("id"));
+			soMap.put("Email",GetMyQuoteInfo.get("Email"));
+			soMap.put("Proposal_Name",Proposal_Details.get("id"));
+			soMap.put("Quote_Name",inpQuoteID);
+			soMap.put("PhysDam_Deductible",physdamDeductible.toString());
+			soMap.put("PhysDam_Rate",physdamRate.toString());
+			soMap.put("Include_NTL",includeNTL);
+			soMap.put("FMV",FMV.toNumber());
+			soMap.put("NTL_Wkly_Amt",ntlWklyAmt);
+			soMap.put("PhysDam_Wkly_Amt",physDamWklyAmt);
+			soMap.put("Combined_INS_Fee",physDamWklyPmt);
+			soMap.put("Lease_Payment",leasePmt.toDecimal());
+			info soMap;
+			updateInsSORec = zoho.crm.createRecord("INS_Sales_Orders",soMap);
+			info updateInsSORec;
+			if(updateInsSORec.containKey("Modified_Time"))
+			{
+				msg = msg + "  INS Sales Order was created";
+			}
+		}
+	}
+	else
+	{
+		msg = "INS Sales Order was already created";
+	}
+	// openUrl("https://crmsandbox.zoho.com/crm/devsandboxed/tab/CustomModule12/4819297000062862021#Script:page.parent.refresh","parent window");
+	info msg;
+}
+catch (e)
+{
+	info e.lineNo;
+	// Displays line number of the statement that caused the error 
+	info e.message;
+	// Displays the error message 
+	info e;
+	// Displays both line number and error message 
+}
