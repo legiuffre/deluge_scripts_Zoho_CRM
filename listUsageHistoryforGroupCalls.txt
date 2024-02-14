@@ -1,0 +1,118 @@
+void listUsageHistoryforGroupCalls()
+{
+authHeaderMap = Map();
+authHeaderMap.put("Content-Type","application/x-www-form-urlencoded");
+authParamMap = Map();
+authParamMap.put("grant_type","client_credentials");
+authParamMap.put("client_id","7uPcnqryEqqbnku0PsFnA");
+authParamMap.put("client_secret","wMBhtomn2ydOOgsL2SReEi6wwXUoXNxhjM2JGIJI1SI");
+authParamMap.put("scope","api.service.analytics.main");
+authResp = invokeurl
+[
+	url :"https://login.serverdata.net/user/connect/token"
+	type :POST
+	parameters:authParamMap
+	headers:authHeaderMap
+];
+accessToken = authResp.get("access_token");
+respHeaderMap = Map();
+respHeaderMap.put("Content-Type","application/json");
+respHeaderMap.put("Authorization","Bearer " + accessToken);
+endtime = zoho.currenttime.toString("yyyy-MM-dd'T'HH:mm:ssZ","US/Central").toTime("yyyy-MM-dd'T'HH:mm:ssZ");
+stime = endtime.subDay(7);
+info "endtime: " + endtime;
+info "starttime: " + stime;
+// starttime = stime.toString("yyyy-MM-dd'T'01:30:000Z").left(23) + "Z";
+starttime = stime.toString("yyyy-MM-dd'T'HH:mm:ssZ","US/Central").toTime("yyyy-MM-dd'T'HH:mm:ssZ");
+starttime = starttime.toString("yyyy-MM-dd'T'HH:mm:ssZ").left(19);
+endtime = endtime.toString("yyyy-MM-dd'T'HH:mm:ssZ").left(19);
+url = "https://api.elevate.services/analytics/usageHistory/calls/group?dateFrom=" + zoho.encryption.urlEncode(starttime) + "Z&dateTo=" + zoho.encryption.urlEncode(endtime) + "Z";
+info url;
+usageHistory = invokeurl
+[
+	url :url
+	type :POST
+	headers:respHeaderMap
+];
+statusCode = ifnull(usageHistory.get("statusCode"),"");
+if(statusCode != "")
+{
+	info usageHistory;
+}
+else
+{
+	// 	info usageHistory;
+	mp = Map();
+	count = 1;
+	for each  call in usageHistory.get("calls")
+	{
+		// 		if(count <= 10)
+		// 		{
+		mp.clear();
+		direction = ifnull(call.get("direction"),"");
+		group = ifnull(call.get("group"),"");
+		id = ifnull(call.get("id"),"");
+		start = ifnull(call.get("start"),"");
+		name = ifnull(call.get("to").get("name"),"");
+		mp.put("Direction",direction);
+		mp.put("Group",group);
+		mp.put("ID",id);
+		mp.put("Start",start);
+		mp.put("Name",name);
+		// 		info "map: " + mp;
+		orgId = "769480731";
+		workspaceId = "2511359000013176001";
+		viewId = "2511359000013177002";
+		headersMap = Map();
+		headersMap.put("ZANALYTICS-ORGID",orgId);
+		fieldMap = Map();
+		fieldMap.put("Direction",direction);
+		fieldMap.put("Group",group);
+		fieldMap.put("ID",id);
+		fieldMap.put("Start",start);
+		fieldMap.put("Name",name);
+		config = Map();
+		config.put("columns",fieldMap);
+		config.put("criteria","\"List Usage History for Group Calls\".\"ID\"='" + id + "'");
+		// 		info "config: " + config;
+		paramsMap = Map();
+		paramsMap.put("CONFIG",config);
+		// 		info "paramsMap: " + paramsMap;
+		response = invokeurl
+		[
+			url :"https://analyticsapi.zoho.com/restapi/v2/workspaces/" + workspaceId + "/views/" + viewId + "/rows"
+			type :PUT
+			parameters:paramsMap
+			headers:headersMap
+			connection:"zoho_analytics"
+		];
+		// 		info left(response,5000);
+		// 		info response;
+		if(response.get("data").get("updatedRows") == 0)
+		{
+			addParamMap = Map();
+			addParamMap.put("columns",fieldMap);
+			paramsMap.clear();
+			paramsMap.put("CONFIG",addParamMap);
+			info paramsMap;
+			addResp = invokeurl
+			[
+				url :"https://analyticsapi.zoho.com/restapi/v2/workspaces/" + workspaceId + "/views/" + viewId + "/rows"
+				type :POST
+				parameters:paramsMap
+				headers:headersMap
+				connection:"zoho_analytics"
+			];
+			info "addResp: " + addResp;
+		}
+		else
+		{
+			info "updateResp: " + response;
+		}
+		// 		analyticsUpdate = zoho.reports.updateData("Elevate","List Usage History for Group Calls",fieldMap,"id=" + id,"zoho_analytics");
+		// 		info analyticsUpdate;
+		// 		}
+		count = count + 1;
+	}
+}
+}
