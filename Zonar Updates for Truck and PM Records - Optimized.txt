@@ -15,10 +15,11 @@ endtime = currentDate.unixEpoch().left(10);
 stime = currentDate.subDay(7).toText();
 starttime = stime.unixEpoch().left(10);
 criteriaText = "(Truck_Status:equals:-Delivered)";
-// criteriaText = "(Name:equals:4V4NC9EH9RN641958)";
+// criteriaText = "(Name:equals:4V4NC9EH7RN652666)";
 zonarP = zoho.crm.getOrgVariable("zonar_p");
 zonarU = zoho.crm.getOrgVariable("zonar_u");
-enableUpdates = true;
+enableUpdates = false;
+info "enableUpdates: " + enableUpdates;
 //searches for truck status based on "delivered" with a zonar GPS ID
 csvFileRow = List();
 csvFileRow.add("VIN,MPG,Odometer,Distance");
@@ -31,17 +32,8 @@ for each  ele in loop
 	}
 	for each  truck in alltrucks
 	{
-		distance = 0;
-		odometer = 0;
-		mpg = 0;
-		fuelTotal = 0;
-		firstFuelTotal = 0;
-		lastFuelTotal = 0;
-		firstOdometer = 0;
-		lastOdometer = 0;
 		final = Map();
 		final2 = Map();
-		// 		vin = "4V4NC9EH2PN616753";
 		vin = truck.get("Name");
 		info vin;
 		gpsID = isNull(truck.get("Zonar_GPS_ID"));
@@ -51,173 +43,124 @@ for each  ele in loop
 			trkID = truck.get("id");
 			InserviceDate = truck.get("Lease_Start_Date");
 			recordCount = 0;
-			fleet = "";
-			//previousFleet = "";
-			//currentFleet = "";
-			//jbusTripURL pulls in the API call with added variables VIN, starttime, and endtime
 			paramMap = Map();
 			paramMap.put("customer","rel9300");
 			paramMap.put("username",zonarU);
 			paramMap.put("password",zonarP);
-			paramMap.put("action","showopen");
-			paramMap.put("operation","jbustrip");
-			paramMap.put("format","xml");
-			paramMap.put("start",starttime);
-			paramMap.put("end",endtime);
-			paramMap.put("vers","4");
+			paramMap.put("action","showposition");
+			paramMap.put("operation","path");
+			paramMap.put("format","json");
+			paramMap.put("starttime",starttime);
+			paramMap.put("endtime",endtime);
+			paramMap.put("version","2");
+			paramMap.put("logvers","3.8");
 			paramMap.put("reqtype","vin");
 			paramMap.put("target",vin);
-			jbusRespXML = invokeurl
+			actResp = invokeurl
 			[
 				url :"https://omi.zonarsystems.net/interface.php"
 				type :GET
 				parameters:paramMap
 			];
-			// 			info jbusRespXML;
-			errCheck = jbusRespXML.contains("error");
+			errCheck = actResp.contains("error");
 			// 			//info errCheck;
-			if(errCheck || jbusRespXML == "")
+			if(errCheck || actResp == "")
 			{
 				sendmail
 				[
 					from :zoho.adminuserid
 					to :"it@teamrel.com"
-					subject :"Odometer Update Failed on " + vin
-					message :"Odometer Script Failed on " + vin + " with the following error " + jbusRespXML + "<br><br>"
+					subject :"Schedule - Zonar Updates for Truck and PM Records"
+					message :"Odometer Script Failed on " + vin + " with the following error " + actResp + "<br><br>"
 				]
 				info "Found Error";
 				//send email command
 			}
-			// 			info jbusRespXML;
-			recordCount = jbusRespXML.getSuffix('count="').getPrefix('"');
-			info recordCount;
-			//info "before sort: " + tripList;
-			jbusRespXML = jbusRespXML.toXmlList();
-			//info jbusRespXML;
-			tripList = jbusRespXML.sort(false);
-			info "after sort: " + tripList;
-			// 			fuelTotal = tripList.executexpath("/totals/fuel_total");
-			// 			info fuelTotal;
-			if(recordCount.toNumber() > 0)
+			if(actResp.length() > 500)
 			{
-				//final = Map();
-				for each  trip in tripList
-				{
-					fleet = if(trip.getSuffix('fleet="').isEmpty(),"",trip.getSuffix('fleet="').getPrefix('"'));
-					odometer = if(trip.getSuffix("<odometer>").getPrefix("</odometer>").isEmpty(),0,trip.getSuffix("<odometer>").getPrefix("</odometer>"));
-					fuelTotal = if(trip.getSuffix("<fuel_total>").getPrefix("</fuel_total>").isEmpty(),0,trip.getSuffix("<fuel_total>").getPrefix("</fuel_total>"));
-					assetList = jbusRespXML.executexpath("/jbustrip/trip/asset").toXmlList();
-					assetListSort = assetList.sort(false);
-					//info "assetList: " + assetListSort;
-					secondCount = 0;
-					for each  asset in assetListSort
-					{
-						secondCount = secondCount + 1;
-						//info secondCount;
-						if(secondCount == recordCount)
-						{
-							lastOdometer = if(asset.getSuffix("<odometer>").getPrefix("</odometer>").isEmpty(),0,asset.getSuffix("<odometer>").getPrefix("</odometer>"));
-							lastFuelTotal = if(asset.getSuffix("<fuel_total>").getPrefix("</fuel_total>").isEmpty(),0,asset.getSuffix("<fuel_total>").getPrefix("</fuel_total>"));
-							// 							info "last fuel total: " + lastFuelTotal;
-							// 							info "last odometer: " + lastOdometer;
-						}
-						if(secondCount == 1)
-						{
-							firstOdometer = odometer;
-							firstFuelTotal = fuelTotal;
-							// 							info "first fuel total: " + firstFuelTotal;
-							// 							info "first odometer: " + firstOdometer;							
-						}
-					}
-					count = count + 1;
-					info fleet;
-					if(firstOdometer != 0)
-					{
-						mpg = (firstOdometer.toNumber() / firstFuelTotal.toNumber()).round(2);
-						metersTraveled = 0;
-						info "firstOdom: " + firstOdometer;
-						info "lastOdom: " + lastOdometer;
-						if(firstOdometer == lastOdometer)
-						{
-							metersTraveled = if(asset.getSuffix("<miles>").getPrefix("</miles>").isEmpty(),0,asset.getSuffix("<miles>").getPrefix("</miles>"));
-							info "metersTraveled: " + metersTraveled;
-							distance = metersTraveled.toNumber() * 0.000621371;
-						}
-						else
-						{
-							distance = firstOdometer.toNumber() - lastOdometer.toNumber();
-						}
-						info "distance: " + distance;
-					}
-					if(firstOdometer.toNumber() > 3000)
-					{
-						final.put("General_Condition","Good");
-					}
-					else
-					{
-						final.put("General_Condition","New");
-					}
-				}
-			}
-			odomParamMap = Map();
-			odomParamMap.put("customer","REL9300");
-			odomParamMap.put("username",zonarU);
-			odomParamMap.put("password",zonarP);
-			odomParamMap.put("action","showposition");
-			odomParamMap.put("showposition","operation");
-			odomParamMap.put("operation","current");
-			odomParamMap.put("reqtype","vin");
-			odomParamMap.put("format","xml");
-			odomParamMap.put("logvers","3.3");
-			odomParamMap.put("target",vin);
-			curOdomXML = invokeurl
-			[
-				url :"https://omi.zonarsystems.net/interface.php"
-				type :GET
-				parameters:odomParamMap
-			];
-			//info curOdomURL;
-			info curOdomXML;
-			errCheck = curOdomXML.contains("error");
-			info errCheck;
-			if(errCheck || curOdomXML == "<currentlocations></currentlocations>")
-			{
-				sendmail
-				[
-					from :zoho.adminuserid
-					to :"it@teamrel.com"
-					subject :"Odometer Update Failed"
-					message :"Odometer Script Failed with the following error or empty response from Zonar: VIN = " + vin + "<br><br>" + curOdomXML + "<br><br>"
-				]
-				info "Found Error";
-				//send email command
+				info "full response: " + Left(actResp,500);
 			}
 			else
 			{
-				curOdometer = curOdomXML.getSuffix("<odometer>").getPrefix("</odometer>");
-				//info curOdometer;
-				curOdomKM = curOdometer.abs() / 1000;
-				//info curOdomKM;
-				curOdomMiles = (curOdomKM / 1.609344).toNumber();
-				info "Current Mileage for " + vin + " = " + curOdomMiles;
-				if(curOdomMiles.toNumber() > firstOdometer.toNumber())
+				info "no result: " + actResp;
+				break;
+			}
+			pathEvents = actResp.get("pathevents");
+			info "pathevents: " + Left(pathEvents,500);
+			asset = pathEvents.get("assets");
+			// 			info "asset: " + Left(asset,500);
+			recordCount = asset.get(0).get("eventcount");
+			info "recordCount: " + recordCount;
+			if(recordCount.toNumber() > 0)
+			{
+				events = asset.get(0).getJSON("events");
+				info "events: " + Left(events,500);
+				// 				info events.get(0).get("lat");
+				count = 0;
+				last_odometer = 0;
+				first_odometer = 0;
+				last_distance = 0;
+				first_distance = 0;
+				last_time = "";
+				first_time = "";
+				last_fuel_counter = 0;
+				first_fuel_counter = 0;
+				distance_traveled = 0;
+				mpg = 0;
+				for each  event in events
 				{
-					firstOdometer = curOdomMiles;
+					// 					info "event: " + events.get(count).get("lat");
+					if(count == recordCount - 1)
+					{
+						last_odometer = ifnull(events.get(count).get("odometer"),0);
+						last_distance = ifnull(events.get(count).get("distance_traveled"),0);
+						last_time = ifnull(events.get(count).get("time"),"");
+						last_fuel_counter = ifnull(events.get(count).get("fuel_counter"),0);
+						info "last_odometer: " + last_odometer;
+						info "last_distance: " + last_distance;
+						info "last_time: " + last_time;
+						info "last_fuel_counter: " + last_fuel_counter;
+						last_fuel_counter = last_fuel_counter.remove(",");
+					}
+					if(count == 1)
+					{
+						first_odometer = ifnull(events.get(count).get("odometer"),0);
+						first_distance = ifnull(events.get(count).get("distance_traveled"),0);
+						first_time = ifnull(events.get(count).get("time"),"");
+						first_fuel_counter = ifnull(events.get(count).get("fuel_counter"),0);
+						info "first_odometer: " + first_odometer;
+						info "first_distance: " + first_distance;
+						info "first_time: " + first_time;
+						info "first_fuel_counter: " + first_fuel_counter;
+						first_fuel_counter = first_fuel_counter.remove(",");
+					}
+					if(count <= recordCount)
+					{
+						count = count + 1;
+					}
 				}
+				if(last_distance > 0 && last_fuel_counter.isNumber() && first_fuel_counter.isNumber())
+				{
+					distance_traveled = last_distance.toDecimal() - first_distance.toDecimal();
+					fuel_consumed = last_fuel_counter.toDecimal() - first_fuel_counter.toDecimal();
+					info "distance traveled: " + distance_traveled;
+					info "fuel consumed: " + fuel_consumed;
+					mpg = (distance_traveled.toDecimal() / fuel_consumed.toDecimal() * 10).round(1);
+				}
+				info "mpg: " + mpg;
 			}
 			if(mpg.toNumber() > 0)
 			{
 				final.put("MPG",mpg.toNumber());
 			}
-			final.put("Mileage_Driven",distance.toNumber());
-			final.put("Current_Mileage",firstOdometer.toNumber());
+			final.put("Mileage_Driven",distance_traveled.toNumber());
+			final.put("Current_Mileage",last_odometer.toNumber());
 			final.put("Mileage_Last_Updated",now.toString("yyyy-MM-dd'T'HH:mm:ss"));
-			info final;
+			info "truck rec update: " + final;
 			pmID = zoho.crm.getRelatedRecords("Truck_PM","Trucks",trkID);
-			//final2 = Map();
-			final2.put("Current_Mileage",firstOdometer.toNumber());
-			final2.put("Solution_Center_Start_Date",InserviceDate);
-			info final2;
+			final2.put("Current_Mileage",last_odometer.toNumber());
+			final2.put("Solution_Center_Start_Date",ifnull(InserviceDate,""));
+			info "pm rec update: " + final2;
 			//updates record with "Mileage_Driven"
 			if(enableUpdates)
 			{
@@ -226,14 +169,14 @@ for each  ele in loop
 				{
 					pm_map_error.put("Truck_VIN",vin);
 					pm_map_error.put("Error_Message",update);
-					// 						info pm_map_error;
+					info pm_map_error;
 					flag_error = 1;
 					sendmail
 					[
 						from :zoho.adminuserid
-						to :"lgiuffre@teamrel.com"
-						subject :"Truck Rec Failed to Update"
-						message :pm_map_error + "<br><br>"
+						to :"it@teamrel.com"
+						subject :"Schedule - Zonar Updates for Truck and PM Records"
+						message :"Truck Rec Failed to Update: " + vin + "<br><br>" + pm_map_error + "<br><br>"
 					]
 				}
 				else
@@ -247,26 +190,27 @@ for each  ele in loop
 					for each  rec in pmID
 					{
 						pm_update = zoho.crm.updateRecord("Truck_PM",rec.get("id"),final2);
-						//Update TruckPM record with Current Module.
+						// 					Update TruckPM record with Current Module.
 						if(pm_update.containKey("Modified_Time") == false)
 						{
 							pm_map_error.put("Truck_VIN",vin);
 							pm_map_error.put("Error_Message",pm_update);
-							// 								info pm_map_error;
+							info pm_map_error;
 							flag_error = 1;
 							sendmail
 							[
 								from :zoho.adminuserid
 								to :"it@teamrel.com"
-								subject :"Truck PM Rec Failed to Update"
-								message :pm_map_error + "<br><br>"
+								subject :"Schedule - Zonar Updates for Truck and PM Records"
+								message :"Truck Rec Failed to Update: " + vin + "<br><br>" + pm_map_error + "<br><br>"
 							]
 						}
 					}
 				}
 				info pm_update;
 			}
-			csvFileRow.add(vin + "," + mpg + "," + firstOdometer + "," + distance);
+			info "__________________________";
+			csvFileRow.add(vin + "," + mpg + "," + last_odometer + "," + distance_traveled);
 		}
 	}
 }
@@ -278,8 +222,8 @@ if(flag_error == 1)
 	[
 		from :zoho.adminuserid
 		to :"it@teamrel.com"
-		subject :"Odometer Script Failed to Update"
-		message :pm_map_error + "<br><br>"
+		subject :"Schedule - Zonar Updates for Truck and PM Records"
+		message :"Schedule Failed: <br><br>" + pm_map_error + "<br><br>"
 	]
 }
 else
@@ -288,7 +232,7 @@ else
 	[
 		from :zoho.adminuserid
 		to :"it@teamrel.com"
-		subject :"Odometer Script Completed Update"
+		subject :"Schedule - Zonar Updates for Truck and PM Records - Completed Update"
 		message :"Odometer Script Completed Update<br><br>Total Records Updated = " + UpdtCnt + "<br><br>Total Record Count = " + RecCnt + "<br><br>"
 		Attachments :file:csvFileObj
 	]
