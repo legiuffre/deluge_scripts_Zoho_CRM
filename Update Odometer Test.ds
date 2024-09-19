@@ -28,7 +28,7 @@ for each  ele in loop
 				//info TrkID;
 				//*** Pull Odometer reading from Zonar and parse data ***
 				//D2 = "3AKJHHDR8KSKJ2986";
-				url3 = "https://omi.zonarsystems.net/interface.php?customer=REL9300&username=abreen&password=Welcome1&action=showposition&operation=assetactivity&format=xml&start=" + starttime + "&end=" + endtime + "&vers=2&reqtype=vin&target=" + D2;
+				url3 = "https://omi.zonarsystems.net/interface.php?customer=REL9300&username=XXXX&password=XXXX&action=showposition&operation=assetactivity&format=xml&start=" + starttime + "&end=" + endtime + "&vers=2&reqtype=vin&target=" + D2;
 				xmlResponse3 = ifnull(getUrl(url3),"");
 				//info url3;
 				//info "xmlResponse3 = " + xmlResponse3;

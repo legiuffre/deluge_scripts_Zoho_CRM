@@ -1,0 +1,190 @@
+pm_map_error = Map();
+zonarP = zoho.crm.getOrgVariable("zonar_p");
+zonarU = zoho.crm.getOrgVariable("zonar_u");
+enableUpdates = true;
+odomParamMap = Map();
+odomParamMap.put("customer","REL9300");
+odomParamMap.put("username",zonarU);
+odomParamMap.put("password",zonarP);
+odomParamMap.put("action","showposition");
+odomParamMap.put("showposition","operation");
+odomParamMap.put("operation","current");
+odomParamMap.put("format","xml");
+odomParamMap.put("logvers","3.3");
+odomParamMap.put("sortfield","fleet");
+odomParamMap.put("sortdir","asc");
+curOdomXML = invokeurl
+[
+	url :"https://omi.zonarsystems.net/interface.php"
+	type :GET
+	parameters:odomParamMap
+];
+errCheck = curOdomXML.contains("error");
+info "errCheck: " + errCheck;
+if(errCheck || curOdomXML == "<currentlocations></currentlocations>")
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Odometer Update Failed"
+		message :"Odometer Script Failed with the following error or empty response from Zonar: " + curOdomXML + "<br><br>"
+	]
+	info "Found Error";
+	//send email command
+}
+else
+{
+	curOdomXML = curOdomXML.executeXPath("/currentlocations/asset").toXMLList();
+	odomAssetList = curOdomXML.sort(false);
+	fleetNode = "";
+	fleetNum = "";
+	odomNode = "";
+	curOdometer = "";
+	RecCnt = 0;
+	UpdtCnt = 0;
+	count = 0;
+	flag_error = 0;
+	finalList = List();
+	finalCsvRow = List();
+	finalCsvRow.add("VIN,MPG,Odometer,Distance");
+	// 	info odomAssetList;
+	for each  asset in odomAssetList
+	{
+		// 		info "asset XML: " + asset;
+		fleetNode = asset.executeXPath("/asset/@fleet");
+		fleetNum = fleetNode.executeXPath("/fleet/text()");
+		if(!isEmpty(fleetNum) && fleetNum.right(6) == "036665")
+		{
+			// 			if(count < 10)
+			// 			{
+			// 				updateList = List();
+			odomNode = asset.executeXPath("/asset/odometer");
+			curOdometer = odomNode.executeXPath("/odometer/text()");
+			curOdomKM = curOdometer.abs() / 1000;
+			curOdomMiles = (curOdomKM / 1.609344).toNumber();
+			info "Current Mileage for " + fleetNum + " = " + curOdomMiles;
+			fleetNum = fleetNum.right(6);
+			info "fleetNum: " + fleetNum;
+			truckRec = zoho.crm.searchRecords("Trucks","(Truck_VIN_Last_6:equals:" + fleetNum + ") and (Truck_Status:equals:-Delivered)");
+			// 				info truckRec;
+			info truckRec.size();
+			if(truckRec.size() > 0)
+			{
+				csvFileRow = List();
+				for each  truck in truckRec
+				{
+					RecCnt = RecCnt + 1;
+					gpsID = isNull(truck.get("Zonar_GPS_ID"));
+					vin = truck.get("Name");
+					if(gpsID == false)
+					{
+						distance = 0;
+						odometer = 0;
+						mpg = 0;
+						fuelTotal = 0;
+						firstFuelTotal = 0;
+						lastFuelTotal = 0;
+						firstOdometer = 0;
+						lastOdometer = 0;
+						final = Map();
+						final2 = Map();
+						trkID = truck.get("id");
+						InserviceDate = truck.get("Lease_Start_Date");
+						info vin;
+						final.put("id",trkID);
+						final.put("Current_Mileage",curOdomMiles.toNumber());
+						final.put("Mileage_Last_Updated",now.toString("yyyy-MM-dd'T'HH:mm:ss"));
+						info final;
+						pmID = zoho.crm.getRelatedRecords("Truck_PM","Trucks",trkID);
+						//final2 = Map();
+						final2.put("Current_Mileage",curOdomMiles.toNumber());
+						final2.put("Solution_Center_Start_Date",InserviceDate);
+						info final2;
+						//updates record with "Mileage_Driven"
+						if(enableUpdates)
+						{
+							update = zoho.crm.updateRecord("Trucks",trkID,final);
+							if(update.containKey("Modified_Time") == false)
+							{
+								pm_map_error.put("Truck_VIN",vin);
+								pm_map_error.put("Error_Message",update);
+								// 						info pm_map_error;
+								flag_error = 1;
+								sendmail
+								[
+									from :zoho.adminuserid
+									to :"lgiuffre@teamrel.com"
+									subject :"Truck Rec Failed to Update"
+									message :pm_map_error + "<br><br>"
+								]
+							}
+							else
+							{
+								UpdtCnt = UpdtCnt + 1;
+							}
+							info update;
+							if(pmID.size() > 0)
+							{
+								//Check for no records returned
+								for each  rec in pmID
+								{
+									pm_update = zoho.crm.updateRecord("Truck_PM",rec.get("id"),final2);
+									//Update TruckPM record with Current Module.
+									if(pm_update.containKey("Modified_Time") == false)
+									{
+										pm_map_error.put("Truck_VIN",vin);
+										pm_map_error.put("Error_Message",pm_update);
+										// 								info pm_map_error;
+										flag_error = 1;
+										sendmail
+										[
+											from :zoho.adminuserid
+											to :"lgiuffre@teamrel.com"
+											subject :"Truck PM Rec Failed to Update"
+											message :pm_map_error + "<br><br>"
+										]
+									}
+								}
+							}
+							info pm_update;
+						}
+						// 							updateList.add(final);
+						csvFileRow.add(vin + "," + 0 + "," + curOdomMiles + "," + 0);
+					}
+					// 						finalList.add(updateList);
+					finalCsvRow.add(csvFileRow.toString());
+				}
+			}
+			// 			}
+		}
+		count = count + 1;
+	}
+}
+currentDate = now.toText();
+csvFileName = "truck_export_" + currentDate.unixEpoch() + ".csv";
+csvFileObj = finalCsvRow.toString(zoho.encryption.urlDecode("%0A")).toFile(csvFileName);
+if(flag_error == 1)
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Odometer Script Failed to Update"
+		message :pm_map_error + "<br><br>"
+	]
+}
+else
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Odometer Script Completed Update"
+		message :"Odometer Script Completed Update<br><br>Total CRM Records Updated = " + UpdtCnt + "<br><br>Total CRM Record Count = " + RecCnt + "<br><br>Total Zonar Record Count = " + count + "<br><br>"
+		Attachments :file:csvFileObj
+	]
+}
+info " Total Records Updated = " + UpdtCnt;
+info "Total Record Count = " + RecCnt;
+info "Zonar Count = " + count;

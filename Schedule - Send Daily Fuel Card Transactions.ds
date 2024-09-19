@@ -1,13 +1,13 @@
-orgId = "769480731";
-workspaceId = "2511359000009718178";
-viewId = "2511359000010417951";
+orgId = zoho.crm.getOrgVariable("orgID");
+workspaceId = zoho.crm.getOrgVariable("workspaceID");
+viewId = zoho.crm.getOrgVariable("viewID");
 headersMap = Map();
 headersMap.put("ZANALYTICS-ORGID",orgId);
 config = Map();
 config.put("responseFormat","json");
 paramsMap = Map();
 paramsMap.put("CONFIG",config.toString());
-//https://analytics.zoho.com/workspace/2511359000009718178/view/2511359000009881065
+
 response = invokeurl
 [
 	url :"https://analyticsapi.zoho.com/restapi/v2/workspaces/" + workspaceId + "/views/" + viewId + "/data"
@@ -66,7 +66,7 @@ if(dataget.size() > 0)
 				bcc :bcc_email
 				reply to :"jmyers@teamrel.com,kstauder@teamrel.com"
 				subject :"Daily Transaction File"
-				message :"Based on the data we receive from T-Chek, the following purchases were made against your REL TChek fuel cards yesterday.  Please note, Column B is the card number, Column C is the assigned truck number, Column D is the Odometer reading entered at time of purchase, Column F is the transaction date and time, Column G is the Merchant name, city and state, Column H are the number of gallons purchased or attempted.  Column I is the billed amount, and column J confirms if this billing will go through to FXG.  If column J is blank, it means the transaction will NOT be sent to FXG.<br><br>If Column H is empty, but there is a charge in Column I, it means that transaction would be for a different authorized purchase (IE: DEF, Road Repair, Oil, Washer fluid, etc. <br><br>If you notice or suspect fraudulent purchases, please contact T-Chek (800-776-2433) IMMEDIATELY and your line-haul manager to submit a Fraudulent Charge Dispute Form and take appropriate action to cancel/reorder new card immediately.<br><br>Sincerely,<br>REL<br><br><br>"
+				message :"Attention REL Fuel Card Customer<br><br>We are pleased to announce the launch of a new tool to help you manage your fuel purchases.  The REL Fuel Monitor - Powered by HaldiTech is now LIVE!  Get the same great info you’re receiving in this email but much, MUCH more.  The tool is FREE to FedEx Contractors using the REL Fuel Card.  For more information or to sign up, click the link below.  <br><br><a href='https://www.halditech.com/rel-fuel-monitor/'>https://www.halditech.com/rel-fuel-monitor/</a><br><br>Based on the data we receive from T-Chek, the following purchases were made against your REL TChek fuel cards yesterday.  Please note, Column B is the card number, Column C is the assigned truck number, Column D is the Odometer reading entered at time of purchase, Column F is the transaction date and time, Column G is the Merchant name, city and state, Column H are the number of gallons purchased or attempted.  Column I is the billed amount, and column J confirms if this billing will go through to FXG.  If column J is blank, it means the transaction will NOT be sent to FXG.<br><br>If Column H is empty, but there is a charge in Column I, it means that transaction would be for a different authorized purchase (IE: DEF, Road Repair, Oil, Washer fluid, etc. <br><br>If you notice or suspect fraudulent purchases, please contact T-Chek (800-776-2433) IMMEDIATELY and your line-haul manager to submit a Fraudulent Charge Dispute Form and take appropriate action to cancel/reorder new card immediately.<br><br>Sincerely,<br>REL<br><br><br>"
 				Attachments :file:csvFileObj
 			]
 			info sendEmailAddresses;
@@ -123,7 +123,7 @@ if(dataget.size() > 0)
 			bcc :bcc_email
 			reply to :"jmyers@teamrel.com,kstauder@teamrel.com"
 			subject :"Daily Transaction File"
-			message :"Based on the data we receive from T-Chek, the following purchases were made against your REL TChek fuel cards yesterday.  Please note, Column B is the card number, Column C is the assigned truck number, Column D is the Odometer reading entered at time of purchase, Column F is the transaction date and time, Column G is the Merchant name, city and state, Column H are the number of gallons purchased or attempted.  Column I is the billed amount, and column J confirms if this billing will go through to FXG.  If column J is blank, it means the transaction will NOT be sent to FXG.<br><br>If Column H is empty, but there is a charge in Column I, it means that transaction would be for a different authorized purchase (IE: DEF, Road Repair, Oil, Washer fluid, etc. <br><br>If you notice or suspect fraudulent purchases, please contact T-Chek (800-776-2433) IMMEDIATELY and your line-haul manager to submit a Fraudulent Charge Dispute Form and take appropriate action to cancel/reorder new card immediately.<br><br>Sincerely,<br>REL<br><br><br>"
+			message :"Attention REL Fuel Card Customer<br><br>We are pleased to announce the launch of a new tool to help you manage your fuel purchases.  The REL Fuel Monitor - Powered by HaldiTech is now LIVE!  Get the same great info you’re receiving in this email but much, MUCH more.  The tool is FREE to FedEx Contractors using the REL Fuel Card.  For more information or to sign up, click the link below.  <br><br><a href='https://www.halditech.com/rel-fuel-monitor/'>https://www.halditech.com/rel-fuel-monitor/</a><br><br>Based on the data we receive from T-Chek, the following purchases were made against your REL TChek fuel cards yesterday.  Please note, Column B is the card number, Column C is the assigned truck number, Column D is the Odometer reading entered at time of purchase, Column F is the transaction date and time, Column G is the Merchant name, city and state, Column H are the number of gallons purchased or attempted.  Column I is the billed amount, and column J confirms if this billing will go through to FXG.  If column J is blank, it means the transaction will NOT be sent to FXG.<br><br>If Column H is empty, but there is a charge in Column I, it means that transaction would be for a different authorized purchase (IE: DEF, Road Repair, Oil, Washer fluid, etc. <br><br>If you notice or suspect fraudulent purchases, please contact T-Chek (800-776-2433) IMMEDIATELY and your line-haul manager to submit a Fraudulent Charge Dispute Form and take appropriate action to cancel/reorder new card immediately.<br><br>Sincerely,<br>REL<br><br><br>"
 			Attachments :file:csvFileObj
 		]
 		info "EOF reached";

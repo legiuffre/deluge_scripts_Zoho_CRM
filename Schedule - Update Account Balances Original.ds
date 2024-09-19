@@ -21,7 +21,7 @@ for each  ele in loop
 	for each  Rec in response
 	{
 		// 		if(Rec.get("Account_Name") == "Way Routes Inc.")
-		if(Rec.get("Account_Type") == "REL Lease Customer" || Rec.get("Account_Type") == "REL Solutions Only" || Rec.get("Account_Type") == "REL Fuel Only")
+		if(Rec.get("Account_Type") == "FedEx Customer" || Rec.get("Account_Type") == "Test Account" || Rec.get("Account_Type") == "Non-FedEx Customer")
 		{
 			//if(Rec.get("Account_Type") == "REL Fuel Only")
 			RecCnt = RecCnt + 1;

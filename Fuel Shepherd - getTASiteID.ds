@@ -2,7 +2,7 @@
 enableSandbox = false;
 headersMap = Map();
 paramsMap = Map();
-correlationId = "cd8a4945-3e32-4d74-b7b5-3a2d1b7b7d7c";
+correlationId = zoho.crm.getOrgVariable("corr_id");
 tempMap = {"app_name":"get_ta_token","correlation_id":correlationId,"client_id":zoho.crm.getOrgVariable("fsAPIClientID"),"client_secret":zoho.crm.getOrgVariable("fsAPIClientSecret")};
 headersMap.putAll(tempMap);
 tempMap.clear();
@@ -12,7 +12,7 @@ devHostURL = "https://api-d1.accessta.com";
 prodHostURL = "https://api.accessta.com";
 ta_auth_token_api_call = invokeurl
 [
-	url :"https://www.zohoapis.com/crm/v2/functions/requesttokenfromta/actions/execute?auth_type=apikey&zapikey=1003.1f15b82919b7cf94785325320ccb4609.46b21668c003c554563ef1c67169ff95"
+	url :"https://www.zohoapis.com/crm/v2/functions/requesttokenfromta/actions/execute?auth_type=apikey&zapikey="+zoho.crm.getOrgVariable("api_key")
 	type :GET
 	headers:headersMap
 ];
@@ -23,8 +23,8 @@ ta_auth_token = details.get("output");
 headersMap.put("app_name","Postman");
 headersMap.put("correlation_id",correlationId);
 headersMap.put("authorization","Bearer " + ta_auth_token);
-paramsMap.put("client_id",zoho.crm.getOrgVariable("fsAPIClientID"));
-paramsMap.put("client_secret",zoho.crm.getOrgVariable("fsAPIClientSecret"));
+// paramsMap.put("client_id",zoho.crm.getOrgVariable("fsAPIClientID"));
+// paramsMap.put("client_secret",zoho.crm.getOrgVariable("fsAPIClientSecret"));
 if(enableSandbox)
 {
 	tempURL = devHostURL;
@@ -33,11 +33,11 @@ else
 {
 	tempURL = prodHostURL;
 }
-paramsMap.put("audience",tempURL);
-paramsMap.put("grant_type","client_credentials");
+// paramsMap.put("audience",tempURL);
+// paramsMap.put("grant_type","client_credentials");
 response = invokeurl
 [
-	url :tempURL + "/pricing-services/1/opis?site_identifier='0001'"
+	url :tempURL + "/location-services/1/locations"
 	type :GET
 	parameters:paramsMap.toString()
 	headers:headersMap

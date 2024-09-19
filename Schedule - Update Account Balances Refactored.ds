@@ -1,0 +1,152 @@
+loop = {1,2,3,4,5,6};
+perPage = 200;
+enableUpdates = true;
+pm_map_error = Map();
+for each  ele in loop
+{
+	//*** Go get Account Records and sort by Account Name ***
+	query_map = Map();
+	query_map.put("sort_order","desc");
+	query_map.put("sort_by","Account_Name");
+	acctResponse = zoho.crm.getRecords("Accounts",ele,perPage,query_map);
+	if(acctResponse.size() == 0)
+	{
+		//Break if no records are returned
+		break;
+	}
+	for each  acctRec in acctResponse
+	{
+		if(acctRec.get("Account_Type") == "FedEx Customer" || acctRec.get("Account_Type") == "Test Account" || acctRec.get("Account_Type") == "Non-FedEx Customer")
+		{
+			newmap = Map();
+			recId = acctRec.get("id");
+			info recId;
+			info acctRec.get("Account_Name");
+			fcQueryString = "SELECT SUM(Escrow) AS s_Escrow, SUM(Cust_Balance) AS s_Truck_Balance FROM Trucks WHERE Owner1 = " + recId + " AND (((Truck_Status = \"-Delivered\") OR (Truck_Status = \"Virtual\")) OR Truck_Status = \"REL Solution Only\")";
+			fcQueryMap = Map();
+			fcQueryMap.put("select_query",fcQueryString);
+			fcQueryResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v6/coql"
+				type :POST
+				parameters:fcQueryMap.toString()
+				connection:"coql"
+			];
+			data = ifnull(fcQueryResp.get("data"),"");
+			info "escrow: " + data;
+			if(data != "")
+			{
+				for each  item in data
+				{
+					newmap.put("Credit_Utilized",round(ifnull(item.get("s_Truck_Balance"),0),2));
+					newmap.put("Escrow_Amount",round(ifnull(item.get("s_Escrow"),0),2));
+				}
+			}
+			fcQueryString = "SELECT SUM(Total_Spend_YTD) as s_Total_Spend_YTD, SUM(Number_Gallons_YTD) as s_Number_Gallons_YTD, SUM(Savings_YTD) as s_Savings_YTD, SUM(Total_Spend_MTD) as s_Total_Spend_MTD, SUM(Number_Gallons_MTD) as s_Number_Gallons_MTD FROM Fuel_Program WHERE REL_Account_CRM = " + recId + " limit 1";
+			fcQueryMap = Map();
+			fcQueryMap.put("select_query",fcQueryString);
+			fcQueryResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v6/coql"
+				type :POST
+				parameters:fcQueryMap.toString()
+				connection:"coql"
+			];
+			data = ifnull(fcQueryResp.get("data"),"");
+			// 			info data;
+			if(data != "")
+			{
+				for each  item in data
+				{
+					newmap.put("Total_Spend_YTD",round(ifnull(item.get("s_Total_Spend_YTD"),0),2));
+					newmap.put("Total_Gallons_YTD",round(ifnull(item.get("s_Number_Gallons_YTD"),0),2));
+					newmap.put("Savings_YTD",round(ifnull(item.get("s_Savings_YTD"),0),2));
+					newmap.put("Total_Spend_MTD",round(ifnull(item.get("s_Total_Spend_MTD"),0),2));
+					newmap.put("Total_Gallons_MTD",round(ifnull(item.get("s_Number_Gallons_MTD"),0),2));
+				}
+			}
+			fcQueryString = "SELECT SUM(Savings_MTD) as s_Savings_MTD, SUM(FEDEXGR_Gallons_MTD) as s_FEDEXGR_Gallons_MTD, SUM(FEDEXGR_Savings) as s_FEDEXGR_Savings, SUM(TA_Petro_Gallons_MTD) as s_TA_Petro_Gallons_MTD, SUM(TA_Petro_Savings) as s_TA_Petro_Savings FROM Fuel_Program WHERE REL_Account_CRM = " + recId + " limit 1";
+			fcQueryMap = Map();
+			fcQueryMap.put("select_query",fcQueryString);
+			fcQueryResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v6/coql"
+				type :POST
+				parameters:fcQueryMap.toString()
+				connection:"coql"
+			];
+			data = ifnull(fcQueryResp.get("data"),"");
+			// 			info data;
+			if(data != "")
+			{
+				for each  item in data
+				{
+					newmap.put("Total_Savings_MTD",round(ifnull(item.get("s_Savings_MTD"),0),2));
+					// 			fedex
+					newmap.put("FedEx_Gallons_MTD",round(ifnull(item.get("s_FEDEXGR_Gallons_MTD"),0),2));
+					newmap.put("FedEx_Savings",round(ifnull(item.get("s_FEDEXGR_Savings"),0),2));
+					// ta petro
+					newmap.put("TA_Petro_Gallons_MTD",round(ifnull(item.get("s_TA_Petro_Gallons_MTD"),0),2));
+					newmap.put("TA_Petro_Savings",round(ifnull(item.get("s_TA_Petro_Savings"),0),2));
+				}
+			}
+			fcQueryString = "SELECT SUM(OTHER_Gallons_MTD) as s_OTHER_Gallons_MTD, SUM(OTHER_Savings) as s_OTHER_Savings, SUM(Pilot_Flying_J_Gallons_MTD) as s_Pilot_Flying_J_Gallons_MTD, SUM(Pilot_Flying_J_Savings) as s_Pilot_Flying_J_Savings FROM Fuel_Program WHERE REL_Account_CRM = " + recId + " limit 1";
+			fcQueryMap = Map();
+			fcQueryMap.put("select_query",fcQueryString);
+			fcQueryResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v6/coql"
+				type :POST
+				parameters:fcQueryMap.toString()
+				connection:"coql"
+			];
+			data = ifnull(fcQueryResp.get("data"),"");
+			// 			info data;
+			if(data != "")
+			{
+				for each  item in data
+				{
+					// 			other
+					newmap.put("Other_Gallons_MTD",round(ifnull(item.get("s_OTHER_Gallons_MTD"),0),2));
+					newmap.put("Other_Savings",round(ifnull(item.get("s_OTHER_Savings"),0),2));
+					// pilot fj
+					newmap.put("Pilot_Flying_J_Gallons_MTD",round(ifnull(item.get("s_Pilot_Flying_J_Gallons_MTD"),0),2));
+					newmap.put("Pilot_Flying_J_Savings",round(ifnull(item.get("s_Pilot_Flying_J_Savings"),0),2));
+				}
+			}
+			info newmap;
+			if(enableUpdates)
+			{
+				updtRecord = zoho.crm.updateRecord("Accounts",recId,newmap);
+				if(updtRecord.containKey("Modified_Time") == false)
+				{
+					pm_map_error.put("Account_ID",recId);
+					pm_map_error.put("Error_Message",updtRecord);
+					// 						info pm_map_error;
+					flag_error = 1;
+				}
+				info updtRecord;
+			}
+		}
+	}
+}
+if(flag_error == 1)
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Escrow Balance Update Failed"
+		message :pm_map_error + "<br><br>"
+	]
+}
+else
+{
+	sendmail
+	[
+		from :zoho.adminuserid
+		to :"lgiuffre@teamrel.com"
+		subject :"Escrow Update Completed"
+		message :"Escrow Update Completed<br><br>"
+	]
+}

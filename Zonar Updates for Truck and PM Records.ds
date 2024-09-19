@@ -18,7 +18,7 @@ criteriaText = "(Truck_Status:equals:-Delivered)";
 // criteriaText = "(Name:equals:4V4NC9EH7RN652666)";
 zonarP = zoho.crm.getOrgVariable("zonar_p");
 zonarU = zoho.crm.getOrgVariable("zonar_u");
-enableUpdates = false;
+enableUpdates = true;
 info "enableUpdates: " + enableUpdates;
 //searches for truck status based on "delivered" with a zonar GPS ID
 csvFileRow = List();
