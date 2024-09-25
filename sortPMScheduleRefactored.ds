@@ -1,0 +1,56 @@
+selectQry = "SELECT Parent_Id, Next_Service_Mileage1, Next_Service_Date, Service_Type, Service, PM_Code, Interval_Time, Interval_Type, Interval_Frequency, Interval_Miles, Completed FROM PM_Schedule WHERE Next_Service_Date is not null ORDER BY Parent_Id ASC, Next_Service_Date DESC, Next_Service_Mileage1 ASC";
+selectQryMap = Map();
+selectQryMap.put("select_query",selectQry);
+pmResp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v3/coql"
+	type :POST
+	parameters:selectQryMap.toString()
+	connection:"coql_dev"
+];
+sortedUpdateList = List();
+data = ifnull(pmResp.get("data"),"");
+if(data != "")
+{
+	count = 0;
+	previousParentRecID = "";
+	for each  item in pmResp.get("data")
+	{
+		// Extract Parent_Id from the current item
+		parentId = ifnull(item.get("Parent_Id").get("id"),"");
+		item.remove("Parent_Id");
+		// Check if the Parent_Id has changed (update records if it has)
+		if(parentId != previousParentRecID && sortedUpdateList.size() > 0)
+		{
+			info "Updating Parent ID: " + previousParentRecID;
+			info "sortedList: " + sortedUpdateList;
+			// Update the subform for the previous Parent_Id (with all grouped records)
+			updateMap = Map();
+			updateMap.put("PM_Schedule",sortedUpdateList);
+			// Update the parent record's subform with the sorted data
+			updateResponse = zoho.crm.updateRecord("Truck_PM",previousParentRecID,updateMap);
+			info updateResponse;
+			// Clear the sorted list and prepare for the next parent record
+			sortedUpdateList.clear();
+			count = count + 1;
+			// Stop processing if 10 records have been updated
+			if(count >= 10)
+			{
+				break;
+			}
+		}
+		// Add the current item to the list for the current Parent_Id
+		sortedUpdateList.add(item);
+		// Update the parent record ID for the next iteration
+		previousParentRecID = parentId;
+	}
+	// Final update for the last Parent_Id in the loop
+	if(sortedUpdateList.size() > 0)
+	{
+		info "Final update for Parent ID: " + previousParentRecID;
+		updateMap = Map();
+		updateMap.put("PM_Schedule",sortedUpdateList);
+		updateResponse = zoho.crm.updateRecord("Truck_PM",previousParentRecID,updateMap);
+		info updateResponse;
+	}
+}
